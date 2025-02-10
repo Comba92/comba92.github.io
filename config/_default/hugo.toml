@@ -48,4 +48,3 @@ buildFuture = true
 [services]
   [services.googleAnalytics]
     ID = 'G-9FX5VCRQV3'
-    respectDoNotTrack = true
