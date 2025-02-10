@@ -1,0 +1,23 @@
+{{/* headline */}}
+{{ with .Site.Params.homepage.profile.headline }}
+  <span class="headline">{{ . | markdownify }}</span>
+{{ end }}
+
+{{/* image */}}
+{{ $img := .Site.Params.homepage.profile.image }}
+{{ $where := .Site.Params.homepage.profile.where }}
+{{ if $img }}
+  <div class="avatar {{ $where }}">
+  {{ $imgData := dict "Page" . "URL" $img "Alt" "Profile Image" "Size" "200x200" }}
+  {{ partial "image-renderer.html" $imgData }}
+  </div>
+{{ end }}
+
+{{/* Content from _index.html */}}
+{{ .Content }}
+
+{{ if .Site.Params.Social }}
+  <div class="socials">
+  {{ partial "home/socials.html" . }}
+  </div>
+{{ end }}

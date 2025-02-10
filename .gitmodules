@@ -1,0 +1,7 @@
+[submodule "themes/ananke"]
+	path = themes/ananke
+	url = https://github.com/theNewDynamic/gohugo-theme-ananke.git
+[submodule "themes/kayal"]
+	path = themes/kayal
+	url = https://github.com/mnjm/kayal.git
+	branch = main
