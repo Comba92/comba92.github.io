@@ -36,7 +36,7 @@
 [[main]]
 name = 'posts'
 title = 'Posts'
-url = '/posts/'
+url = '/page/posts/'
 weight = 1
 
 [[main]]
