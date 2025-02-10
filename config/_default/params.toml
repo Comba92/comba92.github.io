@@ -107,7 +107,7 @@ showBreadcrumbs = false
 # Whether to display pages as a card
 cardView = true
 # Whether to display RSS link
-showRSS = false
+showRSS = true
 
 # Social links
 [[social]]
