@@ -1,7 +1,7 @@
 # -- Site Configuration --
 
 # URL to the root of your website.
-# baseURL = "https://your_domain.com/"
+baseURL = "https://comba92.github.io/page/"
 
 # Site's language code
 languageCode = 'en-us'
