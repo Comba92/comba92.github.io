@@ -130,11 +130,6 @@ name = "Telegram"
 icon = "telegram"
 url = ""
 
-[[social]]
-name = "Mail"
-icon = "email"
-url = "mailto:emial@example.com"
-
 #
 # [[social]]
 # name = "Email"
