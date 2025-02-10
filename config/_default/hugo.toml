@@ -47,5 +47,5 @@ buildFuture = true
 # Google Analytics Configuration
 [services]
   [services.googleAnalytics]
-    ID = 'G-G66QJ4Y29B'
+    ID = 'G-9FX5VCRQV3'
     respectDoNotTrack = true

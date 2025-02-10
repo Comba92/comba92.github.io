@@ -48,7 +48,7 @@ showMore = true
 showMoreDest = "/page/posts"
 [homepage.profile]
 # [Optional] Displayed at the top of your homepage.
-headline = "👋 Welcome to my site"
+# headline = ""
 # [Optional] Path to the profile image relative to assets/ folder. Minimum size: 200x200px.
 # image = "imgs/profile.svg"
 image = "pfp.bmp"
@@ -76,7 +76,7 @@ showToC = true
 # Whether to open the Table of Contents when the page is loaded.
 openToC = false
 # Check https://mnjm.github.io/kayal/docs/advanced-customization/#comments
-showComments = false
+showComments = true
 # Whether to display breadcrumbs
 showBreadcrumbs = false
 
@@ -133,7 +133,7 @@ url = ""
 [[social]]
 name = "Mail"
 icon = "email"
-url = ""
+url = "mailto:emial@example.com"
 
 #
 # [[social]]
