@@ -17,6 +17,15 @@ theme = "kayal"
 # Enable processing of emojis in markdown.
 enableEmoji = true
 
+[markup]
+  [markup.highlight]
+    # https://xyproto.github.io/splash/docs/all.html
+    style = 'evergarden'
+    tabWidth = 2
+    codeFences = true
+    lineNos = true
+
+
 # Enable creation of robots.txt for search engine crawling.
 enableRobotsTXT = true
 
