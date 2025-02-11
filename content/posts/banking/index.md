@@ -90,22 +90,25 @@ A slot will be mapped to a bank depending on what was written to the slot select
 We will use a slots array, where each value is the configured bank for the specific slot.
 
 ![Banking example](banking_example.png "Banking example")
+
 ```rust
 // The hypothetic mapper in the image will configured like so.
 let slots = [bank2, bank0, bank1, bankN]
 ```
 When we get an address, we first have to fiure out in which slot we are:
 
-{{<katex>}}
-$$SlotNumber = (Address - RangeStart) / SlotSize$$
+```rust
+let slot_number = (address - range_start) / slot_size;
+```
 
 We then get the bank starting address:
 
-{{<katex>}}
-$$BankNumber = Slots[SlotNumber]$$
-$$BankStartAddress = BankNumber*SlotSize$$
+```rust
+let bank_number = slots[slot_number];
+let bank_start_address = bank_number * slot_size;
+```
 
-Notice how each bank starting address is a constant. Computing this each time we translate address can be saved work. So instead of saving the banks number, we save their starting address!
+Notice how each bank starting address is a constant. Computing this each time we translate address can be saved work. So instead of saving the banks number, we can save their starting address!
 
 ```rust
 // We can save some computations by storing the banks starting address instead.
@@ -114,8 +117,9 @@ let slots = [bank2 * slotSize, bank0 * slotSize, bank1 * slotSize, bankN * slotS
 
 Finally, we compute the final mapped address.
 
-{{<katex>}}
-$$MappedAddress = BankStartAddress + (Address \bmod SlotSize)$$
+```rust
+let mapped_address = bank_start_address + (address % slot_size);
+```
 
 Notice we wrap around the address by the slot size, so that we always get an address inside the bank. We then add this wrapped address to the bank number we got from the slot selection. 
 The mapped address can now be used to address the full ROM range.

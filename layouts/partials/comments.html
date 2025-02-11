@@ -25,13 +25,13 @@
 </style>
 <div id="comment-section"></div>
 <script>
+        let sectionId = "{{ .Description }}";
         initComments({
                 node: document.getElementById("comment-section"),
                 defaultHomeserverUrl: "https://matrix.cactus.chat:8448",
                 serverName: "cactus.chat",
                 siteName: "comba92",
-                commentSectionId: "{{ .Description }}",
+                commentSectionId: "sectionId",
                 guestPostingEnabled: true,
-                updateInterval: 30,
         })
 </script>
