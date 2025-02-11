@@ -31,9 +31,9 @@ The idea is this:
 3. When we READ from the cartridge PRG-ROM, CHR, PRG-RAM, or from Nametables VRAM, we simply translate the address given the current banking configuration.
 4. For more complex mappers, on each CPU clock, we can handle IRQs, Audio expansions, and scalines detectors (we might want to add other even functions based on how we need to wire the mapper object to the rest of our emulator).
 
-{{< callout icon="comment" >}}
+{{<callout icon="comment">}}
   I have figured ALL mappers would need to hold the bankings object, i have decided to move it out to the memory management object, so that i only have to define it once, and then pass it to the mappers through its methods (this means less typing when defining mappers, probably).
-{{< /callout >}}
+{{</callout>}}
 
 {{<callout icon="comment">}}
   Rust shenanigans: as we can't know at compile which mapper to use, we are using a [trait object](https://doc.rust-lang.org/book/ch17-02-trait-objects.html), and we have to wrap it inside a [Box](https://doc.rust-lang.org/book/ch15-01-box.html) (heap allocated object), as it's size isn't known at compile time.
@@ -241,7 +241,7 @@ pub fn translate(&self, addr: usize) -> usize {
   It would be incredibly convenient to have a method which configures a CIRAM banking given a Nametable mirroring. This is left as an exercise to the reader!
 {{</callout>}}
 
-## A simple example: UxROM
+## Banking system in action: UxROM
 We now have a very handy and convenient interface for developing mappers.
 Look at how simple it is to fully implement UxROM:
 
@@ -254,6 +254,7 @@ impl Mapper for UxROM {
     banks.prg = Banking::new_prg(header, 2);
     banks.chr = Banking::new_chr(header, 1);
     // the CHR only slot should not be banked, so set it to the first (and only) CHR bank.
+    // as it is set to 0, we don't even have to initialize this, depening on the language you're using.
     banks.chr.set_slot(0, 0);
     Box::new(Self)
   }
@@ -267,6 +268,18 @@ impl Mapper for UxROM {
 }
 ```
 And that's it. It is now incredibly addicting to implement mappers. Have fun!
+{{<callout icon="comment">}}
+  [NROM](https://www.nesdev.org/wiki/NROM), [UxROM](https://www.nesdev.org/wiki/UxROM), [CNROM](https://www.nesdev.org/wiki/CNROM), [AxROM](https://www.nesdev.org/wiki/AxROM) are easy mappers which you should definetely implement in your emulator. 
+
+  [MMC1](https://www.nesdev.org/wiki/MMC1) is the most used mapper of the NES. It is fairly more complex, but defintely worth to implement.
+
+  [MMC3](https://www.nesdev.org/wiki/MMC3) is more complex, but is used in almost 300 games.
+
+  [MMC2](https://www.nesdev.org/wiki/MMC2) is only used by Punch Out!!! but can be pretty satifying to implement.
+
+  [VRC6](https://www.nesdev.org/wiki/VRC6) is only used by the japanese version of Castlevania III and other few games, but it has an incredible expansion audio chip which is very fun to implement.
+{{</callout>}}
+
 
 ## Banking system use in my NES emulator
 I have developed a NES emulator and roughly 30 mappers are working flawlessly with this system.
