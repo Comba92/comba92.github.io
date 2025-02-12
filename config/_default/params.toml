@@ -118,19 +118,13 @@ url = "https://github.com/Comba92"
 [[social]]
 name = "Twitter"
 icon = "twitter"
-url = ""
+url = "https://x.com/combaart"
 
-[[social]]
-name = "Discord"
-icon = "discord"
-url = ""
+# [[social]]
+# name = "Discord"
+# icon = "discord"
+# url = ""
 
-[[social]]
-name = "Telegram"
-icon = "telegram"
-url = ""
-
-#
 # [[social]]
 # name = "Email"
 # icon = "email"

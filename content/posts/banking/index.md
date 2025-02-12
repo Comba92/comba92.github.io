@@ -4,15 +4,16 @@ draft = false
 description = 'Banking'
 linkTitle = 'Banking system for NES/Gameboy emulators'
 title = 'A bulletproof banking system for NES/Gameboy emulators'
-summary = 'Guide on how to implement a powerful memory banking system for an emulator'
+summary = 'Guide on how to implement a powerful memory banking system for emulators'
 [params]
   author = 'Comba92'
 tags = ['nes', 'emulation', 'coding', 'rust']
 keywords = ['nes', 'emulation', 'coding', 'banking', 'gameboy', 'implementation', 'rust']
 +++
 Peeking at nesdev's wiki page about [mappers](https://www.nesdev.org/wiki/Mapper), can be daunting, knowing you will have to implement dozens of those to get more games working. Most people will either implement a few and call it a day with their NES emulation, and don't even bother trying with the hardest one.
+![Mmc3 board](mmc3.png "An MMC3 cartridge board (upside-down). You can clearly see the the PRG chip (left), CHR chip (right), and the mapper (bottom). The small chip on the right is [Nintendo's CIC](https://en.wikipedia.org/wiki/CIC_(Nintendo)), the lockout chip to prevent piracy. [Image Source](https://nesdoug.com/2019/11/11/23-advanced-mapper-mmc3/) ")
 <br>
-It is true that to get most games running, you only need to implement the first 5 Nintendo mappers (NROM, MMC1, UxROM, CNROM, MMC3). Even if they only are 5, we have a lot of duplicate functionality. And banking can be a little tricky, as there is a bit of math involved with it. Whenever you are involved with math in code, you definetely want to abstract it out as soon as possible, so you don't have to deal with again later. This is what I call "nasty code"™️.
+It is true that to get most games running, you only need to implement the first 5 Nintendo mappers (NROM, MMC1, UxROM, CNROM, MMC3). Even if they only are 5, we have a lot of duplicate functionality. And banking can be a little tricky, as there is a bit of math involved with it. Whenever you are involved with math in code, you definetely want to abstract it out as soon as possible, so you don't have to deal with it again later. This is what I call "nasty code"™️.
 
 For the Gameboy, banking works exactly the same as the NES, so we can use the same mechanism for both systems.
 
@@ -27,17 +28,19 @@ We surely do not want to implement each mapper logic from scratch. With this in 
 ## The Mapper interface
 First, all mappers should provide a generic interface to work with them. They should store a banking object, which holds all the current game bankings configuration (PRG-ROM, CHR, PRG-RAM, and Nametables VRAM, yes, we also hold the PPU mirroring in there!)
 The idea is this:
-1. When we build the mapper, we set up the bankings.
-2. When we WRITE to the registers to change banks, we update the banking configuration.
-3. When we READ/WRITE from the cartridge PRG-ROM, CHR, PRG-RAM, or from Nametables VRAM, we simply translate the address given the current banking configuration.
+1. When we build the mapper, we set up the bankings, and any other needed mapper state.
+2. When we WRITE to the registers (PRG-ROM address range) to change banks, we update the banking configuration.
+3. When we READ to the cartridge PRG-ROM, or READ/WRITE to the CHR, PRG-RAM, or Nametables VRAM, we simply translate the address given the current banking configuration.
 4. For more complex mappers, on each CPU clock, we can handle IRQs, Audio expansions, and scalines detectors (we might want to add even more functions based on how we need to wire the mapper object to the rest of our emulator).
 
 {{<callout icon="comment">}}
-  I have figured ALL mappers would need to hold the bankings object, so I have decided to move it out to the memory management object, so that i only have to define it once, and then pass it to the mappers through its methods (this means less typing when defining mappers, probably).
+  I figured ALL mappers would need to hold the bankings object, so I have decided to move it out of the mapper object, so that i only have to define it once on the upper object owning the mapper, and then pass it to the mappers through their methods (this means less typing when defining mappers, probably).
 {{</callout>}}
 
 {{<callout icon="comment">}}
-  Rust shenanigans: as we can't know at compile which mapper to use, we are using a [trait object](https://doc.rust-lang.org/book/ch17-02-trait-objects.html), and we have to wrap it inside a [Box](https://doc.rust-lang.org/book/ch15-01-box.html) (heap allocated object), as it's size isn't known at compile time.
+  Rust shenanigans: as we can't know at compile which mapper to use, we are using a [trait object](https://doc.rust-lang.org/book/ch17-02-trait-objects.html), and we have to wrap it inside a [Box](https://doc.rust-lang.org/book/ch15-01-box.html) (heap allocated object), as it's size isn't known at compile time. 
+  <br>
+  We also need to provide the signature 'Box<Mapper> where Self: Sized' in the trait new() function definition, as the compiler told me to do so. We don't need to specify the where clause whenever we are implementing it, tho.
 {{</callout>}}
 
 This is a sketch of how the mapper interface should be, and I provide some default implementations, as most mappers will always have the same ranges mappings:
@@ -80,17 +83,18 @@ trait Mapper {
 }
 ```
 
-Whenever we need more complex mapping logic (the infamous MMC5, for example), we just ovverride the default implementations. The new() and prg_write() methods always have to be implemented, of course.
+Whenever we need more complex mapping logic (something like the infamous MMC5, for example), we just ovverride the default implementations. The new() and prg_write() methods always have to be implemented, of course.
 
 ## Implementing Banking
 We now need a generic banking mechanism.
-A mapper will have a varying amount of 'slots' or 'pages', which are the system's memory ranges, mapped to 'banks', which are cartridge's memory ranges.
-You will always have to refer to the mapper's wiki page to know how many slots there are.
-A slot will be mapped to a bank depending on what was written to the slot select.
+A mapper will have a varying amount of 'slots' or 'pages', which are the *system*'s memory ranges, mapped to 'banks', which are *cartridge*'s memory ranges.
+The number of slots is mapper dependant, you will always have to refer to the mapper's wiki page to know how many there are.
+A slot will be mapped to a bank depending on what was written to the slot select register, this is mapper dependant too.
 <br>
 We will use a slots array, where each value is the configured bank for the specific slot.
+Let's take an hypothetic mapper which uses 4 slots in PRG-ROM:
 
-![Banking example](banking_example.png "Banking example")
+![Banking example](banking_example_bg.png)
 
 ```rust
 // The hypothetic mapper in the image will configured like so.
@@ -106,9 +110,11 @@ We then get the bank starting address:
 
 ```rust
 let bank_number = slots[slot_number];
-let bank_start_address = bank_number * slot_size;
+let bank_start_address = (bank_number % banks_count) * slot_size;
 ```
-
+{{<callout>}}
+Some games will write bigger banks numbers than the ones avaible in ROM. We must be sure to wrap the bank number around the biggest possible for that game.
+{{</callout>}}
 Notice how each bank starting address is a constant. Computing this each time we translate address can be saved work. So instead of saving the banks number, we can save their starting address!
 
 ```rust
@@ -126,10 +132,12 @@ Notice we wrap around the address by the slot size, so that we always get an add
 The mapped address can now be used to address the full ROM range.
 
 {{<callout>}}
-Be aware that divisions and modulos are computationally slow operations, and we can do better.
+Be aware that divisions and modulos are computationally expensive operations, and we can do better.
 They can be optimized for our dear computer friends by using bitwise operators.
 Have a look at how [modulos](https://en.wikipedia.org/wiki/Modulo#Performance_issues) can be optimized here.
 Can we do the same for the multiplication and division? Why?
+{{<collapse summary="Click for solution">}}
+{{</collapse>}}
 {{</callout>}}
 
 ### An example: MMC1's CHR banking
@@ -147,13 +155,9 @@ chr_banks.set_slot(0, value_written);
 chr_banks.set_slot(1, value_written);
 ```
 
-{{<callout>}}
-Some games will write bigger banks numbers than the ones avaible in ROM. We must be sure to wrap the bank number around the biggest possible for that game.
-{{</callout>}}
-
 Whenever we access CHR, we will get a mapped address to access the full CHR range.
 ```rust
-let mapped_addr = chr_banks.tranlsate(address);
+let mapped_addr = chr_banks.translate(address);
 ```
 
 We basically don't have to think about mapping anymore: our abstraction is doing all the hard calculations for us!
@@ -161,7 +165,7 @@ We basically don't have to think about mapping anymore: our abstraction is doing
 Now, what for mode 0? Mode 0 will use a SINGLE CHR slot; this means it will be big 8kb. But our configuration is using 2. To deal with this change, we simply treat the 8kb slot as two 4kb slots. This will mean that whenever we write to the chr bank register in this mode, we have to set both slots. We can do something like this:
 
 ```rust
-// MMC1 will cut the first bit of the bank number in this mode, so it is always expecting even bank numbers.
+// MMC1 will cut the first bit of the bank number in this mode, as this will always give even bank numbers.
 let bank = value_written & !1;
 chr_banking.set_slot(0, value_written);
 chr_banking.set_slot(1, value_written + 1)
@@ -214,7 +218,9 @@ impl Banking {
 }
 ```
 {{<callout>}}
-  The methods new_chr(), new_sram(), and new_ciram() are left to the reader as an exercise :)
+  The methods new_chr(), new_sram(), and new_ciram() are left as an exercise to the reader!
+  {{<collapse summary="Click for solution">}}
+  {{</collapse>}}
 {{</callout>}}
 
 
@@ -244,6 +250,8 @@ pub fn translate(&self, addr: usize) -> usize {
 ```
 {{<callout>}}
   It would be incredibly convenient to have a method which configures a CIRAM banking given a Nametable mirroring. This is left as an exercise to the reader!
+  {{<collapse summary="Click for solution">}}
+  {{</collapse>}}
 {{</callout>}}
 
 ## Banking system in action: UxROM
@@ -272,7 +280,7 @@ impl Mapper for UxROM {
   }
 }
 ```
-And that's it. It is now incredibly addicting to implement mappers. Have fun!
+And that's it! It is now incredibly addicting to implement mappers. Have fun!
 {{<callout icon="comment">}}
   [NROM](https://www.nesdev.org/wiki/NROM), [UxROM](https://www.nesdev.org/wiki/UxROM), [CNROM](https://www.nesdev.org/wiki/CNROM), [AxROM](https://www.nesdev.org/wiki/AxROM) are easy mappers which you should definetely implement in your emulator. 
 
@@ -285,7 +293,6 @@ And that's it. It is now incredibly addicting to implement mappers. Have fun!
   [VRC6](https://www.nesdev.org/wiki/VRC6) is only used by the japanese version of Castlevania III and other few games, but it has an incredible expansion audio chip which is very fun to implement.
 {{</callout>}}
 
-
-## Banking system use in my NES emulator
+## Banking system in action: my NES emulator
 I have developed a NES emulator and roughly 30 mappers are working flawlessly with this system.
 Have a look at it here: [my NES emulator](https://github.com/Comba92/nen-emulator).
