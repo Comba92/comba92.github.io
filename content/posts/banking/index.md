@@ -5,8 +5,7 @@ description = 'Banking'
 linkTitle = 'Banking system for NES/Gameboy emulators'
 title = 'A bulletproof banking system for NES/Gameboy emulators'
 summary = 'Guide on how to implement a powerful memory banking system for emulators'
-[params]
-  author = 'Comba92'
+author = 'Comba92'
 tags = ['nes', 'emulation', 'coding', 'rust']
 keywords = ['nes', 'emulation', 'coding', 'banking', 'gameboy', 'implementation', 'rust']
 aliases = ['/page/posts/banking']

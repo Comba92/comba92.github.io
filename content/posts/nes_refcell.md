@@ -5,8 +5,7 @@ description = 'NesRefcell'
 linkTitle = 'Rust Refcells: how I (un)safely got rid of them'
 title = 'Rust Refcells: how I (un)safely got rid of them in my project'
 summary = 'Refcells have a big overhead, but you can easily get rid of them based on some hard restrictions.'
-[params]
-  author = 'Comba92'
+author = 'Comba92'
 tags = ['rust', 'coding', 'nes', 'emulation']
 keywords = ['nes', 'emulation', 'coding', 'implementation', 'rust', 'refcell', 'interior mutability', 'unsafe', 'mutability', 'pointers', 'raw pointers']
 aliases = ['/page/posts/nes_refcell']
