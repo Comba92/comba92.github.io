@@ -53,7 +53,8 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Install Node.js dependencies
-        run: cd ${{ github.workspace }}/themes/kayal && "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
+        run: "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
+        working-directory: themes/kayal
 
       - name: Build with Hugo
         env:
