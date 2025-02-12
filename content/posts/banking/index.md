@@ -9,6 +9,7 @@ summary = 'Guide on how to implement a powerful memory banking system for emulat
   author = 'Comba92'
 tags = ['nes', 'emulation', 'coding', 'rust']
 keywords = ['nes', 'emulation', 'coding', 'banking', 'gameboy', 'implementation', 'rust']
+aliases = ['page/posts/banking']
 +++
 Peeking at nesdev's wiki page about [mappers](https://www.nesdev.org/wiki/Mapper), can be daunting, knowing you will have to implement dozens of those to get more games working. Most people will either implement a few and call it a day with their NES emulation, and don't even bother trying with the hardest one.
 ![Mmc3 board](mmc3.png "An MMC3 cartridge board (upside-down). You can clearly see the the PRG chip (left), CHR chip (right), and the mapper (bottom). The small chip on the right is [Nintendo's CIC](https://en.wikipedia.org/wiki/CIC_(Nintendo)), the lockout chip to prevent piracy. [Image Source](https://nesdoug.com/2019/11/11/23-advanced-mapper-mmc3/) ")
