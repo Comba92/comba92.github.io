@@ -136,8 +136,7 @@ Be aware that divisions and modulos are computationally expensive operations, an
 They can be optimized for our dear computer friends by using bitwise operators.
 Have a look at how [modulos](https://en.wikipedia.org/wiki/Modulo#Performance_issues) can be optimized here.
 Can we do the same for the multiplication and division? Why?
-{{<collapse summary="Click for solution">}}
-{{</collapse>}}
+
 {{</callout>}}
 
 ### An example: MMC1's CHR banking
@@ -219,7 +218,26 @@ impl Banking {
 ```
 {{<callout>}}
   The methods new_chr(), new_sram(), and new_ciram() are left as an exercise to the reader!
-  {{<collapse summary="Click for solution">}}
+  {{<collapse summary="Click for solution 😠">}}
+  ```rust
+  pub fn new_chr(header: &CartHeader, pages_count: usize) -> Self {
+    let pages_size = 8*1024 / pages_count;
+    Self::new(header.chr_real_size(), 0x0000, pages_size, pages_count)
+  }
+  pub fn new_sram(header: &CartHeader) -> Self {
+    Self::new(header.sram_real_size(), 0x6000, 8*1024, 1)
+  }
+  pub fn new_ciram(header: &CartHeader) -> Self {
+    let mut res = Self::new(4*1024, 0x2000, 1024, 4);
+    if header.mirroring != Mirroring::FourScreen {
+      res.banks_count = 2;
+    }
+
+    // this method is on the third exercise!
+    res.update_mirroring(header.mirroring);
+    res
+  }
+  ```
   {{</collapse>}}
 {{</callout>}}
 
@@ -250,9 +268,39 @@ pub fn translate(&self, addr: usize) -> usize {
 ```
 {{<callout>}}
   It would be incredibly convenient to have a method which configures a CIRAM banking given a Nametable mirroring. This is left as an exercise to the reader!
-  {{<collapse summary="Click for solution">}}
+  {{<collapse summary="Click for solution 😠">}}
+  ```rust
+  pub fn update_mirroring(&mut self, mirroring: Mirroring) {
+    match mirroring {
+      Mirroring::Horizontal => {
+        self.set_page(0, 0);
+        self.set_page(1, 0);
+        self.set_page(2, 1);
+        self.set_page(3, 1);
+      }
+      Mirroring::Vertical => {
+        self.set_page(0, 0);
+        self.set_page(1, 1);
+        self.set_page(2, 0);
+        self.set_page(3, 1);
+      }
+      Mirroring::SingleScreenA => for i in 0..4 {
+        self.set_page(i, 0);
+      }
+      Mirroring::SingleScreenB => for i in 0..4 {
+        self.set_page(i, 1);
+      }
+      Mirroring::FourScreen => for i in 0..4 {
+        self.set_page(i, i);
+      }
+    }
+  }
+  ```
   {{</collapse>}}
 {{</callout>}}
+
+### The code: optimizations
+The first exercise was asking about how you can 
 
 ## Banking system in action: UxROM
 We now have a very handy and convenient interface for developing mappers.
