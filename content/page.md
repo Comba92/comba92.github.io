@@ -1,4 +1,4 @@
 +++
 type = 'redirect'
-target = '/posts'
+target = '/'
 +++

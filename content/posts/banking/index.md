@@ -218,7 +218,8 @@ impl Banking {
 ```
 {{<callout icon="pencil">}}
   The methods new_chr(), new_sram(), and new_ciram() are left as an exercise to the reader!
-  {{<collapse summary="Click for solution 😠">}}
+{{</callout>}}
+{{<collapse summary="Click for solution 😠">}}
   ```rust
   pub fn new_chr(header: &CartHeader, pages_count: usize) -> Self {
     let pages_size = 8*1024 / pages_count;
@@ -239,7 +240,6 @@ impl Banking {
   }
   ```
   {{</collapse>}}
-{{</callout>}}
 
 
 ### The code: operations
@@ -268,7 +268,8 @@ pub fn translate(&self, addr: usize) -> usize {
 ```
 {{<callout icon="pencil">}}
   It would be incredibly convenient to have a method which configures a CIRAM banking given a Nametable mirroring. This is left as an exercise to the reader!
-  {{<collapse summary="Click for solution 😠">}}
+{{</callout>}}
+{{<collapse summary="Click for solution 😠">}}
   Nametable mirroring is the perfect use case for our banking system, as nametable VRAM can be treated as slots and banks!
   <br>
   Learn about nametable mirroring here: https://www.nesdev.org/wiki/Mirroring#Nametable_Mirroring
@@ -299,8 +300,7 @@ pub fn translate(&self, addr: usize) -> usize {
     }
   }
   ```
-  {{</collapse>}}
-{{</callout>}}
+{{</collapse>}}
 
 ## Optimizing Banking
 The first exercise was asking about how you can optimize the banking system, as there are some super nerd trickery we can employ here. The explanation is hidden, if you'd like to think about it before continuing.
