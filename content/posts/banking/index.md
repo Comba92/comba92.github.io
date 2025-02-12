@@ -33,11 +33,11 @@ The idea is this:
 3. When we READ to the cartridge PRG-ROM, or READ/WRITE to the CHR, PRG-RAM, or Nametables VRAM, we simply translate the address given the current banking configuration.
 4. For more complex mappers, on each CPU clock, we can handle IRQs, Audio expansions, and scalines detectors (we might want to add even more functions based on how we need to wire the mapper object to the rest of our emulator).
 
-{{<callout icon="comment">}}
+{{<callout icon="lightbulb">}}
   I figured ALL mappers would need to hold the bankings object, so I have decided to move it out of the mapper object, so that i only have to define it once on the upper object owning the mapper, and then pass it to the mappers through their methods (this means less typing when defining mappers, probably).
 {{</callout>}}
 
-{{<callout icon="comment">}}
+{{<callout icon="code">}}
   Rust shenanigans: as we can't know at compile which mapper to use, we are using a [trait object](https://doc.rust-lang.org/book/ch17-02-trait-objects.html), and we have to wrap it inside a [Box](https://doc.rust-lang.org/book/ch15-01-box.html) (heap allocated object), as it's size isn't known at compile time. 
   <br>
   We also need to provide the signature 'Box<Mapper> where Self: Sized' in the trait new() function definition, as the compiler told me to do so. We don't need to specify the where clause whenever we are implementing it, tho.
@@ -131,12 +131,12 @@ let mapped_address = bank_start_address + (address % slot_size);
 Notice we wrap around the address by the slot size, so that we always get an address inside the bank. We then add this wrapped address to the bank starting address we got from the slot selection.
 The mapped address can now be used to address the full ROM range.
 
-{{<callout>}}
+{{<callout icon="pencil">}}
 Be aware that divisions and modulos are computationally expensive operations, and we can do better.
 They can be optimized for our dear computer friends by using bitwise operators.
 Have a look at how [modulos](https://en.wikipedia.org/wiki/Modulo#Performance_issues) can be optimized here.
 Can we do the same for the multiplication and division? Why?
-
+The solution is [here](#optimizing-banking)
 {{</callout>}}
 
 ### An example: MMC1's CHR banking
@@ -177,7 +177,7 @@ In conclusion, when setting up the banks, we always set the slot size as the sma
 Now, let's code the actual functions.
 
 ### The code: requirements
-What we need:
+{{<icon "list">}} What we need:
 - how big the ROM data is;
 - how many slots the mapper provides;
 - how big a slot is;
@@ -216,7 +216,7 @@ impl Banking {
   }
 }
 ```
-{{<callout>}}
+{{<callout icon="pencil">}}
   The methods new_chr(), new_sram(), and new_ciram() are left as an exercise to the reader!
   {{<collapse summary="Click for solution 😠">}}
   ```rust
@@ -266,9 +266,12 @@ pub fn translate(&self, addr: usize) -> usize {
   self.slots[slot] + (addr % self.bank_size)
 }
 ```
-{{<callout>}}
+{{<callout icon="pencil">}}
   It would be incredibly convenient to have a method which configures a CIRAM banking given a Nametable mirroring. This is left as an exercise to the reader!
   {{<collapse summary="Click for solution 😠">}}
+  Nametable mirroring is the perfect use case for our banking system, as nametable VRAM can be treated as slots and banks!
+  <br>
+  Learn about nametable mirroring here: https://www.nesdev.org/wiki/Mirroring#Nametable_Mirroring
   ```rust
   pub fn update_mirroring(&mut self, mirroring: Mirroring) {
     match mirroring {
@@ -299,8 +302,56 @@ pub fn translate(&self, addr: usize) -> usize {
   {{</collapse>}}
 {{</callout>}}
 
-### The code: optimizations
-The first exercise was asking about how you can 
+## Optimizing Banking
+The first exercise was asking about how you can optimize the banking system, as there are some super nerd trickery we can employ here. The explanation is hidden, if you'd like to think about it before continuing.
+
+<details>
+<summary>Click for explanation</summary>
+ROM sizes are ALWAYS a power of two! And also mapper banks are always going to be a power of two, as there are always an even number of slots. This means we can turn rems to bitwise ands, and multiplications and divisions to bitshifts!
+
+{{<callout icon="stack-overflow">}}
+Refer to [this Stackoverflow post about mults and divs](https://stackoverflow.com/questions/25787613/division-and-multiplication-by-power-of-2) and [this Stackoverflow post about rems](https://stackoverflow.com/questions/6670715/mod-of-power-2-on-bitwise-operators).
+{{</callout>}}
+
+```
+a % b == a & (b-1)
+a * b == a << log2(b)
+a / b == a >> log2(b)
+
+if and only if b is a power of 2.
+```
+
+We have to explicitly do that in code, because the compiler won't catch these optimizations if the values aren't constants.
+We might also want to cache the log2() values when we initialize the mapper, as they are constant.
+This is the final optimized code.
+```rust
+  pub fn new(rom_size: usize, pages_start: usize, page_size: usize, pages_count: usize) -> Self {
+    let bankings = vec![0; pages_count].into_boxed_slice();
+    let bank_size = page_size;
+    let banks_count = rom_size / bank_size;
+
+    // we cache the log2() values
+    let bank_size_for_shift = bank_size.ilog2() as usize;
+    let banks_count_for_shift = banks_count.ilog2() as usize;
+
+    Self { bankings, data_size: rom_size, pages_start, bank_size, bank_size_for_shift, banks_count, banks_count_for_shift }
+  }
+
+  pub fn set_page(&mut self, page: usize, bank: usize) {
+    // let bank = bank % self.banks_count;
+    let bank = bank & (self.banks_count-1);
+    // self.bankings[page] = bank * self.bank_size;
+    self.bankings[page] = bank << self.bank_size_shift;
+  }
+
+  pub fn translate(&self, addr: usize) -> usize {
+    // let page = (addr - self.pages_start) / self.bank_size;
+    let page = (addr - self.pages_start) >> self.bank_size_shift;
+    // self.bankings[page] + (addr % self.bank_size)
+    self.bankings[page] + (addr & (self.bank_size-1))
+  }
+```
+</details>
 
 ## Banking system in action: UxROM
 We now have a very handy and convenient interface for developing mappers.
@@ -328,8 +379,8 @@ impl Mapper for UxROM {
   }
 }
 ```
-And that's it! It is now incredibly addicting to implement mappers. Have fun!
-{{<callout icon="comment">}}
+And that's it! {{<icon "check">}} It is now incredibly addicting to implement mappers. Have fun!
+{{<callout icon="list">}}
   [NROM](https://www.nesdev.org/wiki/NROM), [UxROM](https://www.nesdev.org/wiki/UxROM), [CNROM](https://www.nesdev.org/wiki/CNROM), [AxROM](https://www.nesdev.org/wiki/AxROM) are easy mappers which you should definetely implement in your emulator. 
 
   [MMC1](https://www.nesdev.org/wiki/MMC1) is the most used mapper of the NES. It is fairly more complex, but defintely worth to implement.
@@ -338,7 +389,7 @@ And that's it! It is now incredibly addicting to implement mappers. Have fun!
 
   [MMC2](https://www.nesdev.org/wiki/MMC2) is only used by Punch Out!!! but can be pretty satifying to implement.
 
-  [VRC6](https://www.nesdev.org/wiki/VRC6) is only used by the japanese version of Castlevania III and other few games, but it has an incredible expansion audio chip which is very fun to implement.
+  [VRC6](https://www.nesdev.org/wiki/VRC6) is only used by the japanese version of Castlevania III and other few games, but it has an incredible expansion audio chip which is very fun to implement and finally hear.
 {{</callout>}}
 
 ## Banking system in action: my NES emulator

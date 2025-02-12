@@ -48,7 +48,7 @@ showMore = true
 showMoreDest = "/page/posts"
 [homepage.profile]
 # [Optional] Displayed at the top of your homepage.
-# headline = ""
+headline = "There will one day be something here"
 # [Optional] Path to the profile image relative to assets/ folder. Minimum size: 200x200px.
 # image = "imgs/profile.svg"
 image = "pfp.bmp"

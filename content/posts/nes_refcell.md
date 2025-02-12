@@ -31,8 +31,9 @@ The second was to only redesign my cartridge implementation. This came up to me 
 ## The solution 
 The third solution, which I did end up using, is resort to *unsafe* and *raw* pointers. You heard me right. Rust's guys are probably going to lynch me...
 <br>
-The cool thing is that, **in my case, using pointers is totally 100% SAFE**[^1]. How?
+The cool thing is that, **in my case, using pointers is totally 100% SAFE!!**[^1]. How?
 
+#### Pointer safety conditions
 1. I know for sure the pointer to the cartridge will NEVER be freed; it will live as long the emulator lives. This means we can't have a deallocated memory dereference.
 2. I know for sure I am never changing the pointed value of the pointer: it will always point to the same cartridge object. This means we can't have dangling references.
 3. There will always be only one consumer mutating the cartridge object. Whenever i was mutating it, i always got a borrow and immediately released it. The refcell was basically useless: there is no need for checking borrows at runtime.
@@ -108,14 +109,14 @@ impl Drop for Bus {
 }
 ```
 
-## A little problem: loading a savestate emulator context
-I have a little problem. There is one case where my pointer safety conditions aren't true. Whenever i *load savestates*.
+## A little problem: loading savestates
+I have a little problem. There is one excpetion where my [pointer safety conditions](#pointer-safety-conditions) aren't true. Whenever i *load savestates*.
 When i save a state, i do not serialize the ROM data[^2]. So in the deserialize, there won't be any PRG-ROM nor CHR-ROM. Also, you can't really serialize pointers, as they will change in different runtimes executions.
 I am missing some stuff when deserializing. We have to carefully bake into the new emulator context the cartridge data, and create new pointers accordingly. Luckily for us, we only two places where we use pointers in the whole emulator, so it is easily manageable. 
 You can now clearly see how dangerous pointers can be.
 I use [mem::take()](https://doc.rust-lang.org/std/mem/fn.take.html) here, as it comes in handy for taking out data from structs.
 
-[^2]: if we want to be fussy, I only serialize CHR-RAM, if there's any.
+[^2]: if we want to be fussy, I only serialize CHR-RAM and PRG-RAM, if there are any.
 
 ```rust
 pub fn load_ctx_from_emu(&mut self, other: Emulator) {
@@ -123,6 +124,7 @@ pub fn load_ctx_from_emu(&mut self, other: Emulator) {
   let old_cart = self.get_bus().cart.as_mut();
   let prg = core::mem::take(&mut old_cart.prg);
   let chr = core::mem::take(&mut old_cart.chr);
+  let sram = core::mem::take(&mut old_cart.sram);
 
   // copy the new emulator.
   // the old one gets dropped, with all its data.
@@ -131,6 +133,7 @@ pub fn load_ctx_from_emu(&mut self, other: Emulator) {
   // the new emulator is missing prg and chr; we take the temp ones
   let new_cart = self.get_bus().cart.as_mut();
   new_cart.prg = prg;
+  new_cart.sram = sram;
   // we only copy the temp chr if it is not chr ram, as that has already been deserialized by serde
   if !new_cart.header.uses_chr_ram {
     new_cart.chr = chr;

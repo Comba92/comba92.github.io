@@ -997,3 +997,8 @@ pre code::-webkit-scrollbar-thumb:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.menu svg {
+  width: 1.8em;
+  height: 1.8em;
+}
