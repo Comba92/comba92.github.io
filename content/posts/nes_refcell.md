@@ -7,7 +7,7 @@ title = 'Rust Refcells: how I (un)safely got rid of them in my project'
 summary = 'Refcells have a big overhead, but you can easily get rid of them based on some hard restrictions.'
 author = 'Comba92'
 tags = ['rust', 'coding', 'nes', 'emulation']
-keywords = ['nes', 'emulation', 'coding', 'implementation', 'rust', 'refcell', 'interior mutability', 'unsafe', 'mutability', 'pointers', 'raw pointers']
+keywords = ['nes', 'emulation', 'coding', 'programming', 'implementation', 'rust', 'refcell', 'interior mutability', 'unsafe', 'mutability', 'pointers', 'raw pointers', 'undefined behaviour', 'how to', 'solution']
 aliases = ['/page/posts/nes_refcell']
 +++
 Rust enforces immutability as the default. While it is a sane habit to learn, very often we need interal mutation of objects, and we also want to have these objects referenced in multiple places. Having a multiple mutable reference to an object is not allowed in Rust. Only immutable refenceres can be multiple.

@@ -1,13 +1,12 @@
 +++
 date = '2025-02-10T22:29:48+01:00'
 draft = false
-description = 'Banking'
 linkTitle = 'Banking system for NES/Gameboy emulators'
 title = 'A bulletproof banking system for NES/Gameboy emulators'
-summary = 'Guide on how to implement a powerful memory banking system for emulators'
+summary = 'Short guide on how to implement a convenient and powerful memory banking system for emulators.'
 author = 'Comba92'
-tags = ['nes', 'emulation', 'coding', 'rust']
-keywords = ['nes', 'emulation', 'coding', 'banking', 'gameboy', 'implementation', 'rust']
+tags = ['nes', 'gameboy', 'emulation', 'coding', 'rust']
+keywords = ['nes', 'emulator', 'emulation', 'coding', 'programming', 'banks', 'memory', 'memory banking', 'memory banks', 'development', 'devlog', 'resource', 'banking', 'gameboy', 'implementation', 'rust']
 aliases = ['/page/posts/banking']
 +++
 Peeking at nesdev's wiki page about [mappers](https://www.nesdev.org/wiki/Mapper), can be daunting, knowing you will have to implement dozens of those to get more games working. Most people will either implement a few and call it a day with their NES emulation, and don't even bother trying with the hardest one.
@@ -87,8 +86,10 @@ Whenever we need more complex mapping logic (something like the infamous MMC5, f
 
 ## Implementing Banking
 We now need a generic banking mechanism.
+On original hardware, bankswitching was INSTANTANEOUS. There was no loading nor delay when banks were switched; everything was handled by the hardware. We can't do that in software, so we will need to compute the correct address to a big array of data.
+
 A mapper will have a varying amount of 'slots' or 'pages', which are the *system*'s memory ranges, mapped to 'banks', which are *cartridge*'s memory ranges.
-The number of slots is mapper dependant, you will always have to refer to the mapper's wiki page to know how many there are.
+The number of slots is mapper dependent, you will always have to refer to the mapper's wiki page to know how many there are.
 A slot will be mapped to a bank depending on what was written to the slot select register, this is mapper dependant too.
 <br>
 We will use a slots array, where each value is the configured bank for the specific slot.
