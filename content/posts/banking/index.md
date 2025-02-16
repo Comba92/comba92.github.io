@@ -1,5 +1,6 @@
 +++
 date = '2025-02-10T22:29:48+01:00'
+modified = '2025-02-16T18:00:00+01:00'
 draft = false
 linkTitle = 'Banking system for NES/Gameboy emulators'
 title = 'A bulletproof banking system for NES/Gameboy emulators'
