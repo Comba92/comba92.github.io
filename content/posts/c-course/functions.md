@@ -1,0 +1,12 @@
++++
+date = '2025-04-23T11:55:22+02:00'
+draft = true
+linkTitle = ''
+title = 'Functions'
+summary = ''
+author = 'Comba92'
+tags = []
+keywords = []
++++
+https://en.wikipedia.org/wiki/Function_(computer_programming)
+https://en.wikipedia.org/wiki/Abstraction

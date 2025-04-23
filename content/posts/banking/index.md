@@ -54,6 +54,19 @@ struct CartBaking {
   ciram: Banking, // Nametables VRAM
 }
 
+enum PpuTarget {
+  Chr(usize),
+  CiRam(usize),
+  ExRam(usize),
+  Value(u8)
+}
+
+enum CpuTarget {
+  Cart         // addresses 0x4020..0x6000
+  SRam(usize), // addresses 0x6000..0x8000
+  Prg(usize),  // addresses 0x8000..
+}
+
 trait Mapper {
   // Here we set up the mapper registers, and most importantly the banking configuration.
   fn new(header: &CartHeader, banks: &mut CartBanking) -> Box<Self> where Self: Sized;
