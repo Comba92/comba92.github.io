@@ -18,8 +18,12 @@ https://en.wikipedia.org/wiki/Constant_(computer_programming)
 https://en.wikipedia.org/wiki/Const_(computer_programming)
 https://en.wikipedia.org/wiki/Assignment_(computer_science)
 
+https://en.wikipedia.org/wiki/Declaration_(computer_programming)
+
 https://en.wikipedia.org/wiki/Printf
 https://en.wikipedia.org/wiki/Variadic_function
+
+TODO: explain printf BEFORE
 
 ## Variabili e valori numerici
 Le variabili sono l'atomo dei nostri programmi. Possiamo pensarle come dei 'contenitori', i quali hanno un nome, un tipo, e un valore assegnatoli del corrispettivo tipo.
@@ -84,7 +88,7 @@ Quando introduciamo un identificatore insieme ad un inizializzazione, lo stiamo 
 Per ora, la dichiarazione sembra non avere molto senso, ma lo avrà piú avanti, soprattutto quando studieremo le funzioni. Per ora, inizializza sempre le variabili.
 Linguaggi piú moderni spesso obbligano sempre l'inizializzazione delle variabili.
 
-## Operatori
+## Operatori aritmetici
 Con le variabili di tipo intero, è possibile eseguire esepressioni numeriche. Possiamo usare le operazioni elementari, `+`, `-`, `*` (moltiplicazione), `/` (divisione). Possiamo usare C come una calcolatrice (w-wow...)!!
 
 ```c
@@ -98,6 +102,8 @@ Tutto questo è molto bello, però, non vediamo nulla oltre che al familiare 'He
 Il programma ha eseguito i calcoli che gli abbiamo indicato, ma non abbiamo indicato nulla riguardo al visualizzarli.
 Dobbiamo scoprire come usare nuove utili funzionalità del nostro amico printf.
 
+
+TODO: explain printf BEFORE
 ## La funzione printf()
 Printf non solo può mostrare stringhe su schermo, ma anche valori numerici. Farlo è un po' peculiare però.
 ```c

@@ -101,6 +101,8 @@ Gioca col sorgente e vedi che errori vengono lanciati.
 
 ## Analizziamo Hello World
 C'è un bel po' da estrapolare da queste poche righe.
+Non preoccuparti se non capirai cosa sta succedendo anche dopo aver letto l'analisi a seguire. É del tutto normale trovare fuorvianti le mie spiegazioni al momento. Ogni cosa a suo tempo: per ora siamo solo interessati ad avere un programma funzionante. Nelle prossime lezioni, inizieremo a sporcarci le mani e a capire dettagliatamente tutti i concetti del C.
+
 La riga 1, `#include <stdio.h>` è una *direttiva*. Per ora, la ignoreremo. Accontentiamoci col dire che è necessaria per potere usare la funzione printf (che vedremo a breve).
 
 Ora, un programma in C consiste da un'insieme di **funzioni** e **variabili**.
