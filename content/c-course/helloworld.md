@@ -55,7 +55,7 @@ Sono molto simili a [WSL](https://learn.microsoft.com/en-us/windows/wsl/) l'emul
 Se invece sei un minimalista, e tutti questi emulatori ti sembrano troppo complicati, ti consiglio [w64devkit](https://github.com/skeeto/w64devkit), oppure [WinLibs](https://winlibs.com/).
 Questi semplicemente offrono una zip con MinGw, che dovrai salvare su una cartella a tua scelta, e impostare le [variabili d'ambiente](https://it.wikipedia.org/wiki/Variabile_d%27ambiente) manualmente, in modo da poter richiamare gcc dal terminale di Windows.
 
-Un'altra popolare alternativa è [Clang](https://clang.llvm.org/), un frontend per LLVM. Dato che stiamo già rendendo tutto più complicato di come dovrebbe essere, per i nostri scopi lo ignoreremo.
+Un'altra popolare alternativa è [Clang](https://clang.llvm.org/), un frontend per LLVM. Per i nostri scopi, lo ignoreremo.
 
 ## Il nostro primo programma in C
 Quando si impara un nuovo linguaggio di programmazione, si è soliti scrivere un programma di 'Hello World'. Questo è il più semplice programma che si può scrivere, che mostra su schermo solamente la frase "Hello World!", e può essere utile per capire la sintassi basilare della lingua.
@@ -69,30 +69,69 @@ void main() {
 }
 ```
 
-## Compiliamo il programma
-TODO: parla di come si compila il programma
+## Compiliamo Hello World
+Nella guida mostrerò esempi usando gcc/mingw.
+Il compilatore GCC è un programma da terminale, non ha alcuna interfaccia grafica.
+È un programma abbastanza complesso, con una miriade di opzioni e flags passabili come argomenti.
+Per i nostri scopi però, il suo utilizzo è abbastanza semplice.
+Per compilare un singolo file sorgente in C, basta richiamare gcc e indicargli il nome del file:
+```bash
+gcc file_sorgente.c
+```
+Questo comando genera un file eseguibile chiamato di default "a.out", nella cartella corrente, che può essere eseguito immediatamente.
+Se il file sorgente non è un programma valido, ovvero, sono risultati degli errori di sintassi, la compilazione verrà annullata, e verrà mostrata una lista degli errori con una breve descrizione. Dovete **assolutamente** prendere dimestichezza con gli errori di compilazione, nonostante possano sembrare criptici in certe occasioni. Questa abilità è di vitale importanza, come vedremo nel corso delle lezioni.
+
+Se stai usando un terminale Unix o un emulatore come MSYS2 su Windows, può tornare utile concatenare i comandi con `&&`:
+```bash
+gcc file_sorgente.c && 
+```
+Possiamo scegliere un nome per il file eseguibile generato con la flag `-o`
+```bash
+gcc file_sorgente.c -o nome_eseguibile
+```
+
+Tenete BENE a mente, che GCC mostra solamente gli errori fatali durante la compilazione. Esiste una categoria di errori, i warnings (o avvisi), che sono nascosti di default. I warnings non invalidano la correttezza del programma, quindi un programma con warnings può comunque venire compilato. I warnings però potrebbero causare errori semantici o logici, quindi è sempre buona norma correggerli.
+Per far mostrare a GCC i warning di compilazione, esistono diverse flag.
+Consiglio **vivamente** di compilare sempre con le flag `-Wall` (Warning all) e `-Wextra` (Warning extra).
+
+Per ora, ci basta sapere solo questo. Nelle prossime lezioni vedremo come compilare multipli file sorgente in un solo eseguibile, linkare librerie, e automatizzare il comando di compilazione con tool come make.
+
 Ti invito a provare a cambiare la scritta 'Hello World!' tra doppi apici, ricompilare ed eseguirlo, e vedere cosa succede. Ti invito anche a rimuovere i doppi apici, oppure a inserire un doppio apice all'interno della frase. Il compilatore si lamenta?
-TODO: parla degli errori di sintassi
-TODO: parla di come automatizzare la compilazione ed esecuzione con make
+Gioca col sorgente e vedi che errori vengono lanciati.
 
 ## Analizziamo Hello World
 C'è un bel po' da estrapolare da queste poche righe.
-La riga `#include <stdio.h>` è una *direttiva*. Per ora, accontentiamoci col dire che è necessaria per potere usare la funzione printf (che vedremo a breve).
+La riga 1, `#include <stdio.h>` è una *direttiva*. Per ora, la ignoreremo. Accontentiamoci col dire che è necessaria per potere usare la funzione printf (che vedremo a breve).
 
-La riga `void main() {` è importante. Il 'main' è una *funzione*. Possiamo pensare ad una funzione come ad una raccolta di istruzioni, a cui diamo un nome e possiamo 'chiamare' da altre parti del codice.
-Il 'main' è l'unica funzione **speciale** di C. Nota come dopo `main()` c'è una graffa aperta `{`, e a riga 5 la graffa si chiude `}`.
-Le graffe contentono *blocchi*. Un blocco racchiude 'dentro' di sé un iniseme di istruzioni, in questo caso, le istruzioni della funzione main. Il main è speciale perché tutto ciò racchiuso nel main è ciò che verrà eseguito durante l'esecuzione del programma compilato!
+Ora, un programma in C consiste da un'insieme di **funzioni** e **variabili**.
+Una funzione è una sequenza di **statement** (o, italianizzato, istruzioni). Le istruzioni sono ordinate, ovvero eseguite nell'ordine in cui si presentano, dall'alto verso il basso.
+Una variabile è un contenitore a cui vengono assegnati dei valori, usati durante la sequenza di istruzioni.
+
+Funzioni e variabili hanno un nome, e siamo liberi di assegnargnene qualunque noi vogliamo.
+La funzione 'main', che vediamo a riga 3, `void main() {`, è speciale. Il programma compilato inizierà l'esecuzione proprio da questa funzione. Ogni programma deve avere una funzione main.
+
+Nota come dopo `main()` c'è una graffa aperta `{`, e a riga 5 la graffa si chiude `}`.
+Le graffe contengono un *blocco*. Un blocco racchiude 'dentro' di sé un iniseme di istruzioni, in questo caso, le istruzioni della funzione main.
 
 Nota come abbiamo aggiunto un tab `\t` ad ogni riga interna al blocco.
-In questo modo creiamo un aiuto visivo che ci indica che siamo dentro ad un blocco: questo aiuta notevolmente la leggibilità del codice, ed è buona norma usarle sempre. Più avanti vedremo che i blocchi si possono innestare uno dentro l'altro, e aumenteremo i tab in base alla profondità del blocco.
+In questo modo creiamo un aiuto visivo, che ci indica che siamo dentro ad un blocco: questo aiuta notevolmente la leggibilità del codice, ed è buona norma usarle sempre. Più avanti vedremo che blocchi possono essere innestati uno dentro l'altro, e aumenteremo i tab in base alla profondità del blocco.
 
-Voglio farvi notare che il compilatore **ignora** tutte le tab: non è necessario inserirle per avere un programma corretto (ti invito a rimuoverle e ricompilare). Le stiamo inserendo solamente per nostra comodità. Questo non significa che tu non debba usarle. USALE SEMPRE E COMUNQUE. Più avanti capiremo anche del perché il compilatore ignori tutte le tab, e anche certi spazi.
+A riga 4, all'interno del main, chiamiamo la funzione printf. Il printf (print formatted) è una funzione molto importante. Con l'uso di qualche magia (che decifreremo piú avanti!), riesce a mostrare caratteri e parole sullo schermo del terminale!! In questo caso, sta mostrando la frase "Hello World!".
+Notare come l'abbiamo scritto: abbiamo 'chiamato' printf scrivendo il suo nome, seguito da parentesi aperta `(`, la frase da mostrare, racchiusa da dei doppi apici `"`, poi parentesi chiusa `)`, e infine `;`.
 
-Arriviamo ora all'interno del main, alla funzione printf. Il printf (print formatted) è una funzione molto importante. Questa funzione, con l'uso di qualche magia, riesce a mostrare caratteri e parole sullo schermo del terminale!! In questo caso, sta mostrando la frase "Hello World". Notare come l'abbiamo scritto: abbiamo 'chiamato' printf scrivendo il suo nome, seguito da parentesi aperta `(`, la frase da mostrare, racchiusa da dei doppi apici `"`, poi parentesi chiusa `)`, e infine `;`.
-
-Quando chiamiamo una funzione, questa richiederà dei parametri. Il printf richiede una *stringa*. Una stringa è semplicemente una sequenza di caratteri. Le stringhe sono racchiuse dai doppi apici `"`. Quindi, "Hello World" è una stringa. I doppi apici sono necessari. Se vengono omessi, il compilatore si lamenterà di non riconoscere il simbolo Hello. Questi linguaggi sono formali, un po' come la matematica, e devono seguire regole ferree.
+Alcune funzioni richiedono dei parametri. Il printf richiede una *stringa*. Una stringa è semplicemente una sequenza di caratteri. Le stringhe sono racchiuse dai doppi apici `"`.Quindi, "Hello World!\n" è una stringa. I doppi apici sono necessari. Se vengono omessi, il compilatore si lamenterà di non riconoscere il simbolo Hello. Non farti spaventare dal `\n` alla fine della stringa. Ti invito a toglierlo e vedere cosa succede. Eh si, è semplicemente un carattere di nuova linea.
+I caratteri seguiti da `\` sono chiamati caratteri di 'escape', e vengono interpretati come un carattere unico, quando dentro una stringa.
+Per ora, useremo le stringhe solamente con la funzione printf.
 
 Il punto e virgola finale `;` non è niente di speciale: funge da terminatore per l'istruzione. Tutte le istruzioni che scriveremo devono essere terminate da `;`.
 
-Okay, abbiamo finito. Purtroppo, potrà ancora sembrare tutto molto ambiguo e criptico. Questo perché è ancora presto per spiegare dettagliatamente cosa sia una funzione, ogni cosa a suo tempo.
+Voglio farvi notare che il compilatore **ignora** tutte le tab, e anche certi spazi: non è necessario inserirle per avere un programma corretto (ti invito ancora a togliere e aggiungere spazi a caso e ricompilare). Le stiamo inserendo solamente per nostra comodità visiva. Questo non significa che tu non debba usarle. USALE SEMPRE E COMUNQUE. Più avanti capiremo anche del perché il compilatore ignori questi spazi.
+
+Okay, abbiamo finito. Purtroppo, potrà ancora sembrare tutto molto ambiguo e criptico. Questo perché è ancora presto per spiegare dettagliatamente cosa sia una funzione, ma ogni cosa a suo tempo. Ti chiedo di resistere ancora un po'.
+
 Nella prossima lezione, continueremo a giocare con printf e introdurremo le variabili.
+
+## Esercizi
+- Prepara un ambiente di sviluppo caldo e amorevole.
+- Copia il sorgente di Hello World e assicurati di riuscire a compilarlo dal terminale ed eseguirlo.
+- Gioca con il sorgente di Hello World. Prova a separare la stringa di "Hello World\n" in piú chiamate di printf.
