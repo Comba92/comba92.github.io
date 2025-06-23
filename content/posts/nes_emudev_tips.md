@@ -27,17 +27,17 @@ recommended literature: 2A03/2C02/FDS technical reference documents <br>
 - created in an effort to improve the quality of the user's NES gaming experience
 
 ## Topics discussed
-[General PPU emulation](#general-ppu-emulation) <br>
-[Pixel rendering techniques](#pixel-rendering-techniques) <br>
-[Merging playfield & object pixels](#merging-playfield--object-pixels) <br>
-[Frame store optimizations](#frame-store-optimizations) <br>
-[Smooth audio reproduction](#frame-store-optimizations) <br>
-[6502 instruction decoding & execution techniques](#6502-instruction-decoding--execution-techniques) <br>
-[Emulation address decoding](#emulation-address-decoding) <br>
-[Hardware port queueing](#hardware-port-queueing) <br>
-[Threading NES applications](#threading-nes-applications) <br>
-[Emulator features to support](#emulator-features-to-support) <br>
-[New object-oriented NES file format specification](#new-object-oriented-nes-file-format-specification) <br>
+- [General PPU emulation](#general-ppu-emulation) <br>
+- [Pixel rendering techniques](#pixel-rendering-techniques) <br>
+- [Merging playfield & object pixels](#merging-playfield--object-pixels) <br>
+- [Frame store optimizations](#frame-store-optimizations) <br>
+- [Smooth audio reproduction](#frame-store-optimizations) <br>
+- [6502 instruction decoding & execution techniques](#6502-instruction-decoding--execution-techniques) <br>
+- [Emulation address decoding](#emulation-address-decoding) <br>
+- [Hardware port queueing](#hardware-port-queueing) <br>
+- [Threading NES applications](#threading-nes-applications) <br>
+- [Emulator features to support](#emulator-features-to-support) <br>
+- [New object-oriented NES file format specification](#new-object-oriented-nes-file-format-specification) <br>
 
 
 ----------------

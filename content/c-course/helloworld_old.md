@@ -1,0 +1,84 @@
++++
+date = '2025-06-01T13:46:10+02:00'
+draft = true
+linkTitle = ''
+title = 'Helloworld'
+summary = ''
+author = 'Comba92'
+tags = []
+keywords = []
++++
+https://www.c-language.org/about
+https://en.wikipedia.org/wiki/C_(programming_language)
+
+## Introduction
+This course is aiming to be mostly a beginners introduction to programming and its concepts in general. We will learn to write programs in C.
+
+Why C?
+- it is a relatively simple language (the concepts to understand are fewer than in modern languages). It has almost no abstractions levels below it.
+- it is used everywhere, it's still incredibly popular, and the situation is probably not going to change anytime soon.
+- most modern languages are directly inspired by C, so knowing C means you can learn other languages with less effort. 
+- it is mapped almost directly to how a computer really works; so it is perfect as a learning or educational tool.
+
+You might already have heard people saying things like "C is hard" or "Do not learn C".
+There are reasons for such claims.
+First of all, C is old. Extremely old. It was first created in the 70s by some computer nerds.
+Programming languages, like the natural languages you're using everyday to talk with people, evolve and mutate during time. Nowadays we learnt a lessons or two on how to properly desing programming languages and their features. Sadly C still bags a lot of *bullshits*, which caused problems back in the day, and are still causing problems today, as C is the main driver for almost everything. We will come across most of those bullshits during the course, and I will point them out for you, and how there could exists better solutions.
+
+Second, C interfaces directly with the machine memory. You have almost no levels of abstractions below you. Some people can't wrap their heads around that, but you should learn to reason with it. We are writing computer programs after all, and you should know how computers actually work.
+
+## How does this programming thing works?
+This is not black magic.
+The computer by itself, is not a very useful machine. For being useful, it needs some programs to run. These programs are human-made, and are served as input to a CPU. 
+The CPU is set up to run a 'loop', which works like this:
+1. Fetch the current instruction from the program.
+2. Execute the instruction.
+3. Progress to the next instruction, and repeat from 1.
+Eventually, the CPU would spit out some output to some device, like a screen, so that we humans can get a result out of our program. This is obviously and extreme oversimplifcation, but it's how all computers work and have worked until now.
+
+We humans now have to write this program.
+Computers only understand programs in 'binary' code (alas, 0s and 1s).
+We humans don't obviously want to write programs like that (back in the early days of computing, [they actually did](https://en.wikipedia.org/wiki/Punched_card)).
+We write programs in a human-readable language, a programming language. Then, a program called 'compiler', translates human text to binary code for the computer.
+It's simple, isn't it??
+
+## Setting up
+### Text editor
+First, you will probably want a text editor, or an IDE (Integrated Development Environment).
+You DON'T want to write code in things such as Microsoft Word, you dummy.
+And no, you don't want to write it in the basic Windows Notepad either.
+
+Most beginners nowadays would chose something like Visual Studio Code, but i highly encourage you to look out for the alternatives and what differs from a text editor and an IDE.
+Be aware that Visual Studio Code is diffrent from Visual Studio (without Code).
+Visual Studio Code is more like a generic text editor with some fancy functionality, while Visual Studio is a full blown IDE for Windows development.
+
+### Compiler
+Then, you need a C compiler. Here it starts getting complicated.
+Multiple C compilers exists, developed by different vendors.
+The most popular are:
+- GCC: the GNU C compiler, the de facto compiler for Linux. It doesn't exist on Windows.
+- MSVC: Microsoft Visual C, developed by Microsoft. This can only be downloaded together with Visual Studio (it is a about ten gigabytes big Microsoft slop)
+- Mingw-w64: Minimalist GNU for Windows, this is a Windows port of GCC. It can be installed in multiple ways.
+- Clang: a C compiler frontend for LLVM (do not worry if you don't understand this jargon). This cannot be used alone, as it also needs a LLVM backend. It is usually a drop-in replacement for the three compilers above.
+I don't reccomend choosing lesser known compilers.
+
+If you are on a Linux operating system, chances are you already have a C compiler installed. C compilers usually come preinstalled with your distro. If not, simply install GCC with your package manager.
+
+If you are on Windows on the other hand, you have two choices. Either install Visual Studio, or install Mingw-w64.
+If you choose Mingw, there are multiple ways to install it on Windows. It comes with different development toolchains and environments, like Cygwin and Msys2. These packages are basically collections of linux tools and environments for Windows. You're free to try those out.
+Personally, I prefer the [w64devkit package](https://github.com/skeeto/w64devkit), which is also linked in Mingw-w64 website.
+It doesn't come with any fancy stuff, just a zip with all the needed tools, which you can manually install in the location you prefer.
+
+## The infamous Hello World program
+```c
+#include <stdio.h>
+
+int main() {
+  printf("Hello World!\n");
+  return 0;
+}
+```
+
+## Compiling process
+
+## What is C?
