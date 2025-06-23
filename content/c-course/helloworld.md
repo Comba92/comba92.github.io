@@ -78,7 +78,7 @@ Per compilare un singolo file sorgente in C, basta richiamare gcc e indicargli i
 ```bash
 gcc file_sorgente.c
 ```
-Questo comando genera un file eseguibile chiamato di default "a.out", nella cartella corrente, che può essere eseguito immediatamente.
+Questo comando genera un file eseguibile chiamato di default "a.out" (o "a.exe" se sei su Windows), nella cartella corrente, che può essere eseguito immediatamente.
 Se il file sorgente non è un programma valido, ovvero, sono risultati degli errori di sintassi, la compilazione verrà annullata, e verrà mostrata una lista degli errori con una breve descrizione. Dovete **assolutamente** prendere dimestichezza con gli errori di compilazione, nonostante possano sembrare criptici in certe occasioni. Questa abilità è di vitale importanza, come vedremo nel corso delle lezioni.
 
 Se stai usando un terminale Unix o un emulatore come MSYS2 su Windows, può tornare utile concatenare i comandi con `&&`:
