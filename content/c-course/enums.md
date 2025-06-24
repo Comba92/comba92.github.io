@@ -11,3 +11,6 @@ keywords = []
 https://en.wikipedia.org/wiki/Enumerated_type
 https://en.wikipedia.org/wiki/Union_type
 https://en.wikipedia.org/wiki/Tagged_union
+https://it.wikipedia.org/wiki/Switch_(programmazione)
+
+https://en.wikipedia.org/wiki/Name_collision
