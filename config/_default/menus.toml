@@ -56,3 +56,9 @@ name = "twitter"
 pre = "twitter"
 url = "https://x.com/combaart"
 weight = 4
+
+[[main]]
+name = "discord"
+pre = "discord"
+url = "discord"
+weight = 5
