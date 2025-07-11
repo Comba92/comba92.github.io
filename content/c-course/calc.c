@@ -331,15 +331,15 @@ double evaluate(Expr* e) {
   switch (e->kind) {
     case Expr_Number: {
       double res = e->num;
-      free(e);
+      // free(e);
       return res;
     }
 
     case Expr_Binary: {
       double left = evaluate(e->bin->left);
       double right = evaluate(e->bin->right);
-      free(e->bin);
-      free(e);
+      // free(e->bin);
+      // free(e);
 
       switch (e->bin->operator.sym) {
         case Sym_Add: return left + right;
@@ -354,7 +354,7 @@ double evaluate(Expr* e) {
     }
 
     default: {
-      free(e);
+      // free(e);
       printf("unexpected expression kind\n");
       return 0;
     }
@@ -369,8 +369,9 @@ int main() {
     fgets(buf, 256, stdin);
     TokenArray tokens = tokenize(buf, strlen(buf));
     if (tokens.len == 0) continue;
-
+    printf("Scanning done\n");
     Expr* expr = parse(tokens);
+    printf("Parsing done\n");
     if (expr->kind != Expr_Undefined) {
       printf("%f\n", evaluate(expr));
     }

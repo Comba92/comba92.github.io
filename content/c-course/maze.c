@@ -171,7 +171,7 @@ void print(CellNode maze[][32], int w, int h) {
 }
 
 void better_print(CellNode maze[][32], int w, int h) {
-  char framebuf[h][w * 2] = {};
+  char framebuf[h][w * 2];
   
   for(int i=0; i<h; ++i) {
     for(int j=0; j<w; ++j) {
@@ -209,7 +209,7 @@ void better_print(CellNode maze[][32], int w, int h) {
 }
 
 void better_print_large(CellNode maze[][32], int w, int h) {
-  char framebuf[h][w * 3] = {};
+  char framebuf[h][w * 3];
   
   for(int i=0; i<h; ++i) {
     for(int j=0; j<w; ++j) {
