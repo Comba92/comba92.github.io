@@ -3,6 +3,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+// https://nullprogram.com/blog/2014/06/22/
+
 typedef enum {
   None = 0,
   VertLeft = 185,

@@ -15,3 +15,4 @@ https://en.wikipedia.org/wiki/C_dynamic_memory_allocation
 https://en.wikipedia.org/wiki/Region-based_memory_management
 https://en.wikipedia.org/wiki/Memory_pool
 https://johnnysswlab.com/the-price-of-dynamic-memory-allocation/
+https://marek.vavrusa.com/memory/

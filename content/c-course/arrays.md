@@ -17,3 +17,4 @@ https://en.wikipedia.org/wiki/Stack_(abstract_data_type)
 https://en.wikipedia.org/wiki/Queue_(abstract_data_type)
 
 https://nullprogram.com/blog/2012/07/30/
+https://nullprogram.com/blog/2019/10/27/
