@@ -1,6 +1,6 @@
 +++
 date = '2025-02-16T14:12:15+01:00'
-draft = false
+draft = true
 description = 'BusDispatch'
 linkTitle = 'Bus addresses dispatch in emulators: a few solutions'
 title = 'Bus addresses dispatch in emulators: two solutions to the problem'
