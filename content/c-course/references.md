@@ -17,3 +17,5 @@ https://en.wikipedia.org/wiki/Dangling_pointer
 https://en.wikipedia.org/wiki/Smart_pointer
 
 https://en.wikipedia.org/wiki/Iterator
+
+https://www.digitalmars.com/articles/C-biggest-mistake.html
