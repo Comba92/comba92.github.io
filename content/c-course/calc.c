@@ -1,380 +1,585 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 
-#define arrdef(_type, _name) \
-  typedef struct { \
-    unsigned int cap, len; \
-    _type* data; \
-  } _name##Array \
-
-#define arrpush(_arr, _val) \
-  { \
-    if ((_arr).cap == 0) { \
-      (_arr).cap = 16; \
-      (_arr).data = malloc(sizeof(_val) * (_arr).cap); \
-    } else if ((_arr).len >= (_arr).cap) { \
-      (_arr).cap *= 2; \
-      (_arr).data = realloc((_arr).data, sizeof(_val) * (_arr).cap); \
-    } \
- \
-    (_arr).data[(_arr).len++] = (_val); \
-  } \
-
-#define arrfree(_arr) \
-  { \
-    if ((_arr).cap != 0) { \
-      free(_arr.data); \
-    } \
-  } \
-
-typedef enum {
-  Token_EOF,
-  Token_Number,
-  Token_Symbol,
-} TokenKind;
-
-typedef enum {
-  Sym_None,
-  Sym_ParenLeft,
-  Sym_ParenRight,
-  Sym_Add,
-  Sym_Sub,
-  Sym_Mul,
-  Sym_Div,
-} SymbolKind;
-
-typedef struct {
-  TokenKind kind;
-  int start, len;
-  union {
-    double num;
-    SymbolKind sym;
-  };
-} Token;
-
-Token token_new_num(double num, int start, int len) {
-  return (Token) {
-    .kind = Token_Number,
-    .num = num,
-    .start = start,
-    .len = len,
-  };
-}
-
-Token token_new_sym(SymbolKind sym, int start) {
-  return (Token) {
-    .kind = Token_Symbol,
-    .sym = sym,
-    .start = start,
-    .len = 1,
-  };
-}
-
-Token token_eof() {
-  return (Token) {
-    .kind = Token_EOF,
-  };
-}
-
-arrdef(Token, Token);
-arrdef(char, Char);
-TokenArray tokenize(char* s, int size) {
-  TokenArray tokens = { 0 };
-  CharArray num_buf = { 0 };
+char* file_read_to_string(char* path) {
+  FILE* f = fopen(path, "rb");
+  if (f == NULL) return NULL;
   
-  for (int i=0; i<size; ++i) {
-    SymbolKind curr = Sym_None;
-    switch (s[i]) {
-      case '(': curr = Sym_ParenLeft; break;
-      case ')': curr = Sym_ParenRight; break;
-      case '+': curr = Sym_Add; break;
-      case '-': curr = Sym_Sub; break;
-      case '*': curr = Sym_Mul; break;
-      case '/': curr = Sym_Div; break;
-      case ' ':
-      case '\n':
-      case '\t': break;
-      default: {
-        if (isdigit(s[i])) {
-          num_buf.len = 0;
-          while (i < size && (isdigit(s[i]) || s[i] == '.'))
-            arrpush(num_buf, s[i++]);
+  if (fseek(f, 0, SEEK_END) != 0) return NULL;
+  
+  long size = ftell(f);
+  if (size < 0) return NULL;
 
-          arrpush(num_buf, 0);
-          double num = atof(num_buf.data);
-          Token t = token_new_num(num, i, num_buf.len);
-          arrpush(tokens, t);
-        } else {
-          int err_start = i;
-          while (i < size && !isblank(s[i])) i += 1;
-          printf("Tokenizer error: unexpected token at %d, long %d\n", err_start, i-err_start);
+  char* buf = malloc(size);
+  if (buf == NULL) return NULL;
 
-          arrfree(num_buf);
-          return (TokenArray) {0};
-        }
+  int read = fread(buf, 1, size, f);
+  if (read != size) return NULL;
+  else return buf;
+}
 
-        break;
-      }
-    }
-
-    if (curr != Sym_None) {
-      Token t = token_new_sym(curr, i);
-      arrpush(tokens, t);
-    }
+void stdin_read_line(char* buf, int len) {
+  int c;
+  int count = 0;
+  
+  // we keep space for newline and zero terminator, so iter until len-2
+  while(count < len-2) {
+    c = getchar();
+    if (c == '\n' || c == EOF) break;
+    buf[count++] = c;
   }
 
-  arrfree(num_buf);
+  buf[count++] = '\n';
+  buf[count] = '\0';
+
+  // discard rest of stdin
+  while(c != '\n') c = getchar();
+}
+
+#define VEC_PUSH(_vec, _val) \
+{ \
+  if ((_vec).len >= (_vec).cap) { \
+    (_vec).cap = (_vec).cap == 0 ? 16 : (_vec).cap * 2; \
+    (_vec).data = realloc((_vec).data, (_vec).cap * sizeof(_val)); \
+  } \
+  (_vec).data[(_vec).len++] = (_val); \
+}
+#define VEC_POP(_vec) (_vec).data[(_vec).len--]
+#define VEC_FREE(_vec) free((_vec).data)
+
+#define VEC_DEF(_type) \
+typedef struct { \
+ _type* data; \
+ size_t len, cap; \
+} _type##Vec \
+
+typedef enum {
+  ParenLeft = '(',
+  ParenRight = ')',
+  Number = 'n',
+  Identifier = 'i',
+  Add = '+',
+  Mul = '*',
+  Sub = '-',
+  Div = '/',
+  Rem = '%',
+  Exp = '^',
+  Var = 'v',
+  Assign = '=',
+} TokenType;
+
+typedef struct {
+  TokenType type;
+  int start;
+  int len;
+  double val;
+} Token;
+
+VEC_DEF(Token);
+
+Token token_sym(char c, int start) {
+  return (Token) { c, start, 1, 0 };
+}
+
+int token_is_not_op(Token* t) {
+  return t->type == Var || t->type == Assign || t->type == Number || t->type == Identifier;
+}
+
+void token_dbg(TokenVec tokens, int idx) {
+  Token* t = &tokens.data[idx];
+  printf("[TOKEN %d] kind = %c, col = %d, len = %d, val = %lf\n", idx, t->type, t->start, t->len, t->val);
+}
+
+TokenVec tokenize(char* str) {
+  TokenVec tokens = {0};
+  int column = 0;
+  int line = 0;
+
+  while (1) {
+    // skip whitespace
+    while (isspace(*str)) {
+      str++;
+      column++;
+    }
+
+    char c = *str;
+    Token t;
+
+    switch(c) {
+      case '(':
+      case ')':
+      case '+':
+      case '*':
+      case '-':
+      case '/':
+      case '%':
+      case '^':
+      case '=':
+        t = token_sym(c, column);
+        break;
+
+      case 'v':
+        if (strncmp(str, "var", 3) == 0) {
+          t = (Token) {Var, column, 3, 0};
+        } else {
+          fprintf(stderr, "[LEX ERR] invalid keyword token at %d\n", column);
+          return (TokenVec) {0};
+        }
+        break;
+
+      case '\n':
+        column = 0;
+        line++;
+        break;
+
+      case '\0':
+        return tokens;
+
+      default: {
+        if (isdigit(c)) {
+          int len = 1;
+          while (str[len] != '\0' && isdigit(str[len])) len++;
+          if (str[len] == '.') {
+            len++;
+            while (str[len] != '\0' && isdigit(str[len])) len++;
+          }
+
+          // silly... might be better to memcpy to a buf
+          char* num = strndup(str, len);
+          double val = atof(num);
+          free(num);
+          
+          t = (Token) {Number, column, len, val};
+        } else if (isalpha(c)) {
+          int len = 1;
+          while (str[len] != '\0' && (isalnum(str[len]) || str[len] == '_')) len++;
+          t = (Token) {Identifier, column, len, 0};
+        } else {
+          // handle error
+          fprintf(stderr, "[LEX ERR] Invalid token (%c) at col = %d\n", c, column);
+          return (TokenVec) {0};
+        }
+      } break;
+    }
+
+    VEC_PUSH(tokens, t);
+    str += t.len;
+    column += t.len;
+  }
+
   return tokens;
 }
 
 typedef enum {
-  Expr_Undefined,
-  Expr_Number,
-  Expr_Unary,
-  Expr_Binary,
-} ExprKind;
-
-
-struct Expr;
-struct ExprUnary;
-struct ExprBinary;
-
-struct Expr {
-  ExprKind kind;
-  union {
-    double num;
-    struct ExprUnary* unr;
-    struct ExprBinary* bin;
-  };
-};
-
-struct ExprUnary {
-  struct Expr *right;
-  Token operator;
-};
-
-struct ExprBinary {
-  struct Expr *left, *right;
-  Token operator;
-};
-
-typedef struct Expr Expr;
-typedef struct ExprBinary ExprBinary;
-
-Expr* expr_undefined() {
-  Expr* res = malloc(sizeof(Expr));
-  res->kind = Expr_Undefined;
-  return res;
-}
-
-Expr* expr_new_number(double num) {
-  Expr* res = malloc(sizeof(Expr));
-  res->kind = Expr_Number;
-  res->num = num;
-  return res;
-}
-
-Expr* expr_new_binary(Expr* left, Token op, Expr* right) {
-  Expr* res = malloc(sizeof(Expr));
-  ExprBinary* bin = malloc(sizeof(ExprBinary));
-  res->kind = Expr_Binary;
-  bin->left = left;
-  bin->right = right;
-  bin->operator = op;
-  res->bin = bin;
-  return res;
-}
-
-void expr_print(Expr* e) {
-  printf("Expr: %d\n", e->kind);
-  switch (e->kind) {
-    case Expr_Number: {
-      printf("%f\n", e->num);
-      break;
-    }
-
-    case Expr_Binary: {
-      if (e->bin->left != NULL) expr_print(e->bin->left);
-      printf("[Operator %d]\n", e->bin->operator.kind);
-      if (e->bin->right != NULL) expr_print(e->bin->right);
-      break;
-    }
-
-    default: {
-      printf("You fucked up\n");
-      break;
-    }
-  }
-}
-
-// Expr -> ( Add ) | Number
-// Mult -> Expr (*|/ Expr)*
-// Add -> Mult (+|- Mult)*
+  Literal,
+  Variable,
+  VarAssign,
+  Unary,
+  Binary,
+} ExprType;
 
 typedef struct {
-  TokenArray tokens;
-  int curr;
-  char* err;
+  TokenType op;
+  int expr;
+} ExprUnary;
+
+typedef struct {
+  int lhs_idx;
+  TokenType op;
+  int rhs_idx;
+} ExprBinary;
+
+typedef struct {
+  Token* token;
+  int rhs_idx;
+} ExprAssign;
+
+typedef struct {
+  ExprType type;
+  union {
+    double val;
+    Token* var_tok;
+    ExprAssign var;
+    ExprUnary un;
+    ExprBinary bin;
+  };
+} Expr;
+
+VEC_DEF(Expr);
+
+Expr literal(double val) {
+  return (Expr) { Literal, .val = val };
+}
+
+Expr unary(Token* op, int rhs) {
+  ExprUnary un = (ExprUnary) {op->type, rhs};
+  return (Expr) { Unary, .un = un };
+}
+
+Expr binary(int lhs, Token* op, int rhs) {
+  ExprBinary bin = (ExprBinary) {lhs, op->type, rhs};
+  return (Expr) { Binary, .bin = bin };
+}
+
+Expr var_assign(Token* t, int rhs) {
+  ExprAssign var = (ExprAssign) {t, rhs};
+  return (Expr) { VarAssign, .var = var };
+}
+
+Expr variable(Token* t) {
+  return (Expr) { Variable, .var_tok = t };
+}
+
+void expr_dbg(ExprVec ast, int idx) {
+  Expr* e = &ast.data[idx];
+  printf("[EXPR %d] type = %d ", idx, e->type);
+
+  switch(e->type) {
+    case Literal: printf("val = %lf\n", e->val); break;
+    case Unary:
+      printf("op = %c, rhs = %d\n", e->un.op, e->un.expr);
+      break;
+    case Binary: 
+      printf("lhs = %d, op = %c, rhs = %d\n", e->bin.lhs_idx, e->bin.op, e->bin.rhs_idx);
+      break;
+    default: break; 
+  }
+}
+
+typedef enum {
+  NoErr = 0,
+  BadToken,
+  UnclosedParen,
+  ExpectOperator,
+  BadLeftExpr,
+  ExpectAssign,
+  ExpectIdentifier,
+} ParseErr;
+
+typedef struct  {
+  char* src;
+  TokenVec tokens;
+  int curr_token;
+  ExprVec ast;
+  ParseErr err;
 } Parser;
 
-Token parser_peek(Parser* p) {
-  if (p->curr >= p->tokens.len)
-    return token_eof();
+void parse_log_err(Parser* p, ParseErr err) {
+  p->err = err;
+  
+  fprintf(stderr, "[PARSE ERR] ");
+  switch (p->err) {
+    case BadToken:
+      break;
+    
+    case UnclosedParen:
+      fprintf(stderr, "unclosed parenthesis");  
+      break;
 
-  return p->tokens.data[p->curr];
+    case ExpectOperator:
+      fprintf(stderr, "two consecutive expressions; expected operator");
+      break;
+      
+    case BadLeftExpr:
+      fprintf(stderr, "invalid lhs expression");
+      break;
+
+    case ExpectAssign:
+      fprintf(stderr, "expected '=' token");
+      break;
+
+    case ExpectIdentifier:
+      fprintf(stderr, "expected identifier token after 'var' keyword");
+      break;
+      
+    default: break;
+  }
+  
+  int token_id = p->curr_token-1;
+  Token* t = &p->tokens.data[token_id];
+  int column = t->start;
+  fprintf(stderr, " at token %d (type = %c), column %d\n", token_id, t->type, column);
 }
 
-Token parser_consume(Parser* p) {
-  Token t = parser_peek(p);
-  p->curr += 1;
-  return t;
+int parser_push(Parser* p, Expr e) {
+  VEC_PUSH(p->ast, e);
+  return p->ast.len-1;
 }
 
-Expr* parser_err(Parser* p, char* msg, Token t) {
-  char* buf = malloc(256);
-  snprintf(buf, 256, "%s at %d, long %d", msg, t.start, t.len);
-  p->err = buf;
-  return expr_undefined();
+Token* parser_eat(Parser* p) {
+  return &p->tokens.data[p->curr_token++];
 }
 
-Expr* parse_expr(Parser* p);
-Expr* parse_add(Parser* p);
-Expr* parse_mul(Parser* p);
+Token* parser_peek(Parser* p) {
+  return &p->tokens.data[p->curr_token];
+}
 
-Expr* parse_expr(Parser* p) {
-  Token t = parser_peek(p);
+Expr* parser_get(Parser* p, int idx) {
+  return &p->ast.data[idx];
+}
 
-  switch (t.kind) {
-    case Token_Number: {
-      parser_consume(p);
-      return expr_new_number(t.num);
+int parser_is_at_end(Parser* p) {
+  return (size_t) p->curr_token == p->tokens.len;
+}
+
+void parser_free(Parser *p) {
+  VEC_FREE(p->tokens);
+  VEC_FREE(p->ast);
+}
+
+typedef struct {
+  int left;
+  int right;
+} PrecLvl;
+#define PREC(_a, _b) (PrecLvl) {(_a), (_b)}
+
+PrecLvl prefix_lvl(Token* op) {
+  switch (op->type) {
+    case Sub: return PREC(0, 15);
+    default: return PREC(-1,-1);
+  }
+}
+
+PrecLvl infix_lvl(Token* op) {
+  switch (op->type) {
+    case Add:
+    case Sub:
+      return PREC(9,9);
+    case Mul:
+    case Div:
+      return PREC(10,10);
+    case Exp:
+      return PREC(11,12);
+    case Rem: 
+      return PREC(14,14);
+
+    default: return PREC(-1,-1);
+  }
+}
+
+PrecLvl postfix_lvl(Token* op) {
+  switch (op->type) {
+    default: return PREC(-1,-1);
+  }  
+}
+
+int parse_expr(Parser* p, int prec_lvl) {
+  Token* t = parser_eat(p);
+
+  // parse lhs
+  int lhs;
+  switch (t->type) {
+    case Number:
+      lhs = parser_push(p, literal(t->val));
+      break;
+
+    case Identifier:
+      lhs = parser_push(p, variable(t));
+      break;
+
+    case Sub:
+      PrecLvl lvl = prefix_lvl(t);
+      int rhs = parse_expr(p, lvl.right);
+      lhs = parser_push(p, unary(t, rhs));
+      break;
+
+    case ParenLeft:
+      lhs = parse_expr(p, 0);
+      if (parser_eat(p)->type != ParenRight) {
+        parse_log_err(p, UnclosedParen);
+        return -1;
+      }
+      break;
+
+    default:
+      parse_log_err(p, BadLeftExpr);
+      return -1;
+  }
+
+  while (1) {
+    if (parser_is_at_end(p)) break;
+
+    Token* op = parser_peek(p);
+    if (token_is_not_op(op)) {
+      parse_log_err(p, ExpectOperator);
+      return -1;
     }
 
-    case Token_Symbol: {
-      switch (t.sym) {
-        case Sym_ParenLeft: {
-          parser_consume(p);
-          Expr* expr = parse_add(p);
-          if (parser_peek(p).sym != Sym_ParenRight) {
-            return parser_err(p, "missing right parenthesis", t);
-          }
-          parser_consume(p);
-          return expr;
-        }
+    // postfix operator goes there
 
-        case Sym_ParenRight: {
-          return parser_err(p, "missing left parenthesis", t);
-        }
+    PrecLvl lvl = infix_lvl(op);
+    if (lvl.left < prec_lvl) break;
+    parser_eat(p);
 
-        default: {
-          return parser_err(p, "unexpected symbol", t);
+    int rhs = parse_expr(p, lvl.right);
+    lhs = parser_push(p, binary(lhs, op, rhs));
+  }
+
+  return lhs;
+}
+
+int parse_assign(Parser* p) {
+  // eat var keyword
+  parser_eat(p);
+
+  Token* name = parser_eat(p);
+  if (name->type != Identifier) {
+    parse_log_err(p, ExpectIdentifier);
+    return -1;
+  }
+
+  if (parser_eat(p)->type != Assign) {
+    parse_log_err(p, ExpectAssign);
+    return -1;
+  }
+
+  int rhs = parse_expr(p, 0);
+  return parser_push(p, var_assign(name, rhs));
+}
+
+Parser parse(char* str) {
+  TokenVec tokens = tokenize(str);
+  Parser p = {0};
+  p.src = str;
+  
+  if (tokens.len == 0) {
+    p.err = BadToken;
+    return p;
+  }
+  
+  p.tokens = tokens;
+
+  if (parser_peek(&p)->type == Var) {
+    parse_assign(&p);
+  } else {
+    parse_expr(&p, 0);
+  }
+
+  return p;
+}
+
+typedef struct {
+  char* name;
+  double val;
+} VarEntry;
+
+VEC_DEF(VarEntry);
+
+double eval_rec(Parser* p, int root, VarEntryVec* ctx) {
+  Expr* e = parser_get(p, root);
+
+  switch (e->type) {
+    case Literal: {
+      return e->val;
+    }
+
+    case Variable: {
+      int start = e->var_tok->start;
+      int len = e->var_tok->len;
+
+      char* name = strndup(p->src + start, len);
+
+      int present = -1;
+      for (size_t i=0; i<ctx->len; i++) {
+        if (strcmp(ctx->data[i].name, name) == 0) {
+          present = i;
+          break;
         }
+      }
+
+      if (present == -1) {
+        fprintf(stderr, "[EVAL ERR] Undefined variable at expr id %d\n", root); 
+        return NAN;
+      } else {
+        return ctx->data[present].val;
       }
     }
 
-    case Token_EOF: {
-      return expr_undefined();
-    }
+    case VarAssign: {
+      int start = e->var.token->start;
+      int len = e->var.token->len;
 
-    default: {
-      return parser_err(p, "unexpected token", t);
-    }
-  }
-}
+      char* name = strndup(p->src + start, len);
+      double val = eval_rec(p, e->var.rhs_idx, ctx);
+      VarEntry e = { name, val };
 
-Expr* parse_mul(Parser* p) {
-  Expr* left = parse_expr(p);
-  Token t = parser_peek(p);
-
-  while (t.sym == Sym_Mul || t.sym == Sym_Div) {
-    parser_consume(p);
-    Expr* right = parse_expr(p);
-    left = expr_new_binary(left, t, right);
-    t = parser_peek(p);
-  }
-
-  return left;
-}
-
-Expr* parse_add(Parser* p) {
-  Expr* left = parse_mul(p);
-  Token t = parser_peek(p);
-
-  while (t.sym == Sym_Add || t.sym == Sym_Sub) {
-    parser_consume(p);
-    Expr* right = parse_mul(p);
-    left = expr_new_binary(left, t, right);
-    t = parser_peek(p);
-  }
-
-  return left;
-}
-
-Expr* parse(TokenArray tokens) {
-  Parser p = { .tokens = tokens, .curr = 0, .err = NULL };
-  Expr* res = parse_add(&p);
-
-  arrfree(tokens);
-
-  if (p.err != NULL) {
-    printf("Parser error: %s\n", p.err);
-    return expr_undefined();
-  }
-
-  return res;
-}
-
-double evaluate(Expr* e) {
-  switch (e->kind) {
-    case Expr_Number: {
-      double res = e->num;
-      // free(e);
-      return res;
-    }
-
-    case Expr_Binary: {
-      double left = evaluate(e->bin->left);
-      double right = evaluate(e->bin->right);
-      // free(e->bin);
-      // free(e);
-
-      switch (e->bin->operator.sym) {
-        case Sym_Add: return left + right;
-        case Sym_Sub: return left - right;
-        case Sym_Mul: return left * right;
-        case Sym_Div: return left / right;
-        default: {
-          printf("unexpected operatr kind\n");
-          return 0;
+      int present = -1;
+      for (size_t i=0; i<ctx->len; i++) {
+        if (strcmp(ctx->data[i].name, name) == 0) {
+          present = i;
+          break;
         }
       }
+
+      if (present == -1) {
+        VEC_PUSH(*ctx, e);
+      } else {
+        free(ctx->data[present].name);
+        ctx->data[present] = e;
+      }
+
+      return val;
     }
 
-    default: {
-      // free(e);
-      printf("unexpected expression kind\n");
-      return 0;
+    case Unary: {
+      double rhs = eval_rec(p, e->un.expr, ctx);
+
+      switch(e->un.op) {
+        case Sub: return -rhs;
+        default:
+          fprintf(stderr, "[EVAL ERR] Invalid unary operator at expr id %d\n", root); 
+          return NAN;
+      }
+    }
+    case Binary: {
+      double lhs = eval_rec(p, e->bin.lhs_idx, ctx);
+      double rhs = eval_rec(p, e->bin.rhs_idx, ctx);
+
+      switch(e->bin.op) {
+        case Add: return lhs + rhs;
+        case Sub: return lhs - rhs;
+        case Mul: return lhs * rhs;
+        case Div: return lhs / rhs;
+        case Rem: return fmod(lhs, rhs);
+        case Exp: return pow(lhs, rhs);
+        default:
+          fprintf(stderr, "[EVAL ERR] Invalid binary operator at expr id %d\n", root); 
+          return NAN;
+      }
     }
   }
+
+  // unreachable
+  return NAN;
+}
+
+double eval(Parser* p, VarEntryVec* ctx) {
+  return eval_rec(p, p->ast.len-1, ctx);
 }
 
 int main() {
-  char buf[256];
+  printf("Hello!\n");
 
-  while (true) {
-    printf("> ");
-    fgets(buf, 256, stdin);
-    TokenArray tokens = tokenize(buf, strlen(buf));
-    if (tokens.len == 0) continue;
-    printf("Scanning done\n");
-    Expr* expr = parse(tokens);
-    printf("Parsing done\n");
-    if (expr->kind != Expr_Undefined) {
-      printf("%f\n", evaluate(expr));
+  #define BUF_SIZE 1024
+  char buf[BUF_SIZE];
+  VarEntryVec ctx = {0};
+
+  while(1) {
+    fputs("> ", stdout);
+    stdin_read_line(buf, BUF_SIZE);
+
+    Parser parser = parse(buf);
+    if (parser.err == NoErr) {
+      printf("Result: %lf\n", eval(&parser, &ctx));
+      // for(int i=0; i<parser.tokens.len; i++) token_dbg(parser.tokens, i);
+      // for(int i=0; i<parser.ast.len; i++) expr_dbg(parser.ast, i); 
+      // for(int i=0; i<ctx.len; i++) printf("Var - id: %d, name: %s, val: %lf\n", i, ctx.data[i].name, ctx.data[i].val); 
     }
+
+    parser_free(&parser);
   }
 
   return 0;
