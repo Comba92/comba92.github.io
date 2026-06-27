@@ -351,7 +351,7 @@ But the biggest problem is more subtle. It has to do with [branch prediction](ht
 Branch prediction is a complex topic, over the scope of this article. 
 In the emulator case, memory access is mostly unpredictable, so the emulator's system CPU will have an hard time predicting the address disptach.
 
-## Dispatch table
+### Dispatch table
 Another solution is a [dispatch table](https://en.wikipedia.org/wiki/Dispatch_table).
 There are multiple approaches to this method, too.
 
@@ -362,7 +362,9 @@ We also gained an interesting property: we can now change the table entries to o
 However this still has problems, in my opinion. An array of 64*1024 entries is a little too big. Function pointers are 64bit (8 bytes) in a x86_64 system, so this would mean 8 * 64 * 1024 = 524288, half a megabyte. This would almost fill a CPU cache.
 Also, we didn't solve the branching problem completely, as we now have to incur in a function call penalty instead.
 
+### Optimizing dispatch table
 We can do two things to make it faster.
+#### Use handlers IDs
 First, instead of using function pointers, use handers IDs instead. We define an enum and use it as entries to the table. Enums can be represented as 8bit values, this way we'll be using only 65536 bytes instead of 524288. We then use a switch to dispatch the correct handler. Like so:
 
 ```rust
@@ -407,6 +409,7 @@ match cpu_handler_id {
 }
 ```
 
+#### Use fewer table entries
 The second thing we can do is, make a table with less entries. Look at NES's [CPU memory map](https://www.nesdev.org/wiki/CPU_memory_map) carefully. Notice how the devices are mapped to big ranges of addresses. RAM, for example, occupies 0 to 0x1fff, and PRG occupies 0x8000 to 0xffff. We can choose an address granularity that will map to a SINGLE handler ID.
 This way you can make the dispatch table as small as *8 ENTRIES only*. Like so:
 
