@@ -359,13 +359,19 @@ Naively, we could have an array of function pointers as big as the addressable s
 We don't need to check for any ranges now (so no conditional branching!), as we are accessing the array directly.
 We also gained an interesting property: we can now change the table entries to our liking, and inject it with custom handlers. This is very handy for mapper-dependent functionality or debugging, for example, and would have been very ankward to do with the if-else chain.
 
+```rust
+let handler = cpu_bus_table[addr];
+handler(addr, args);
+```
+
 However this still has problems, in my opinion. An array of 64*1024 entries is a little too big. Function pointers are 64bit (8 bytes) in a x86_64 system, so this would mean 8 * 64 * 1024 = 524288, half a megabyte. This would almost fill a CPU cache.
-Also, we didn't solve the branching problem completely, as we now have to incur in a function call penalty instead.
+Also, we didn't solve the branching problem completely, as we now have to incur in a function call penalty instead. As they are dynamic function pointers, the compiler can't inline the calls.
 
 ### Optimizing dispatch table
 We can do two things to make it faster.
 #### Use handlers IDs
-First, instead of using function pointers, use handers IDs instead. We define an enum and use it as entries to the table. Enums can be represented as 8bit values, this way we'll be using only 65536 bytes instead of 524288. We then use a switch to dispatch the correct handler. Like so:
+First, instead of using function pointers, use handers IDs instead. We define an enum and use it as entries to the table.
+We then use a switch to dispatch the correct handler. Like so:
 
 ```rust
 #[repr(u8)]
@@ -408,6 +414,11 @@ match cpu_handler_id {
     // and so on...
 }
 ```
+
+Enums have advantages:
+- they can be represented as 8bit values, this way we'll be using only 65536 bytes instead of 524288
+- as we're not using functions pointers, we do not incur in a function call.
+- the compiler has better margin for optimizations, as it couldn't do much with the array of function pointers. Now calls to handle_ram_read(), handle_ppu_read(), and so on can be easily inlined.
 
 #### Use fewer table entries
 The second thing we can do is, make a table with less entries. Look at NES's [CPU memory map](https://www.nesdev.org/wiki/CPU_memory_map) carefully. Notice how the devices are mapped to big ranges of addresses. RAM, for example, occupies 0 to 0x1fff, and PRG occupies 0x8000 to 0xffff. We can choose an address granularity that will map to a SINGLE handler ID.
