@@ -53,8 +53,8 @@ This is a sketch of how the mapper interface should be, and I provide some defau
 struct CartBaking {
   prg: Banking,
   chr: Banking,
-  sram: Banking,  // PRG-RAM
-  ciram: Banking, // Nametables VRAM
+  wram: Banking,  // PRG-RAM
+  vram: Banking, // Nametables VRAM
 }
 
 enum PpuTarget {
@@ -80,7 +80,7 @@ trait Mapper {
   fn map_cpu_addr(&mut self, banks: &mut CartBanking, addr: usize) -> CpuTarget {
     match addr {
       0x4020..=0x5FFF => CpuTarget::Cart,
-      0x6000..=0x7FFF => CpuTarget::WRam(banks.sram.translate(addr)),
+      0x6000..=0x7FFF => CpuTarget::WRam(banks.wram.translate(addr)),
       0x8000..=0xFFFF => CpuTarget::Prg(banks.prg.translate(addr)),
       _ => unreachable!()
     }
@@ -89,7 +89,7 @@ trait Mapper {
   fn map_ppu_addr(&mut self, banks: &mut CartBanking, addr: usize) -> PpuTarget {
     match addr {
       0x0000..=0x1FFF => PpuTarget::Chr(banks.chr.translate(addr)),
-      0x2000..=0x2FFF => PpuTarget::Vram(banks.ciram.translate(addr)),
+      0x2000..=0x2FFF => PpuTarget::Vram(banks.vram.translate(addr)),
       _ => unreachable!()
     }
   }
@@ -241,7 +241,7 @@ impl Banking {
 }
 ```
 {{<callout icon="pencil">}}
-  The methods new_prg(), new_sram(), and new_ciram() are left as an exercise to the reader!
+  The methods new_prg(), new_wram(), and new_vram() are left as an exercise to the reader!
 {{</callout>}}
 {{<collapse summary="Click for solution 😠">}}
   ```rust
@@ -252,10 +252,10 @@ impl Banking {
     res
   }
 
-  pub fn new_sram(header: &CartHeader) -> Self {
-    Self::new(header.sram_real_size(), 0x6000, 8*1024, 1)
+  pub fn new_wram(header: &CartHeader) -> Self {
+    Self::new(header.wram_real_size(), 0x6000, 8*1024, 1)
   }
-  pub fn new_ciram(header: &CartHeader) -> Self {
+  pub fn new_vram(header: &CartHeader) -> Self {
     let mut res = Self::new(4*1024, 0x2000, 1024, 4);
     if header.mirroring != Mirroring::FourScreen {
       res.banks_count = 2;
