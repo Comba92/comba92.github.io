@@ -50,7 +50,7 @@ The idea is this:
 This is a sketch of how the mapper interface should be, and I provide some default implementations, as most mappers will always have the same ranges mappings:
 
 ```rust
-struct CartBaking {
+struct CartBanking {
   prg: Banking,
   chr: Banking,
   wram: Banking,  // PRG-RAM
@@ -77,6 +77,7 @@ trait Mapper {
 
   // These will dispatch the /write to the correct target.
   // You would probably prefer using a table of handlers instead of checking ranges
+  // Have a look at https://comba92.github.io/posts/banking/#bus-dispatch
   fn map_cpu_addr(&mut self, banks: &mut CartBanking, addr: usize) -> CpuTarget {
     match addr {
       0x4020..=0x5FFF => CpuTarget::Cart,
@@ -324,6 +325,120 @@ pub fn translate(&self, addr: u16) -> usize {
   }
   ```
 {{</collapse>}}
+
+## Bus dispatch
+What about bus dispatching? As we're here dealing with addresses and accessing memory, it's a good time to talk about bus dispatching too.
+When developing emulators, you will need to implement some sort of "*bus dispatch*" mechanism. This is because most systems use a [memory mapped](https://en.wikipedia.org/wiki/Memory-mapped_I/O_and_port-mapped_I/O) model, where the full address space accessible might redirect on different memory areas, devices or registers, depending on the address ranges read/written to, and have any sort of side effects.
+
+In hardware, this is no problem at all, as the manifacturer can wire the bus lines to its liking. In software however, we have to find a solution. There are two that i can think of.
+
+### If-else chain
+The first naive solution is obviously to check in what range the address falls.
+This can be done easily with just a bunch of if-elses:
+```rust
+if ram_range.contains(addr) {
+  // access ram
+} else if ppu_range.contains(addr) {
+  // access ppu
+} else if io_range.contains(addr) {
+  // access io registers
+} else if // and so on...
+```
+
+While this is a more than enough solution, it has a few problems.
+First of all, for every access, we would need to check every address range individually. This might be bad if there are a lot of different ranges and peripherals.
+But the biggest problem is more subtle. It has to do with [branch prediction](https://en.wikipedia.org/wiki/Branch_predictor). 
+Branch prediction is a complex topic, over the scope of this article. 
+In the emulator case, memory access is mostly unpredictable, so the emulator's system CPU will have an hard time predicting the address disptach.
+
+## Dispatch table
+Another solution is a [dispatch table](https://en.wikipedia.org/wiki/Dispatch_table).
+There are multiple approaches to this method, too.
+
+Naively, we could have an array of function pointers as big as the addressable space, so that we can index the handler directly with the address. For example, on a 16bit system, we would need a 64 * 1024 (max addressable value) entries array of function pointers. We would build this array programmatically at startup.
+We don't need to check for any ranges now (so no conditional branching!), as we are accessing the array directly.
+We also gained an interesting property: we can now change the table entries to our liking, and inject it with custom handlers. This is very handy for mapper-dependent functionality or debugging, for example, and would have been very ankward to do with the if-else chain.
+
+However this still has problems, in my opinion. An array of 64*1024 entries is a little too big. Function pointers are 64bit (8 bytes) in a x86_64 system, so this would mean 8 * 64 * 1024 = 524288, half a megabyte. This would almost fill a CPU cache.
+Also, we didn't solve the branching problem completely, as we now have to incur in a function call penalty instead.
+
+We can do two things to make it faster.
+First, instead of using function pointers, use handers IDs instead. We define an enum and use it as entries to the table. Enums can be represented as 8bit values, this way we'll be using only 65536 bytes instead of 524288. We then use a switch to dispatch the correct handler. Like so:
+
+```rust
+#[repr(u8)]
+pub enum CpuHandler {
+    Ram,
+    Ppu,
+    IO,
+    Wram,
+    Prg,
+    OpenBus,
+    Mapper,
+
+    // Some examples of custom handlers!
+    PpuMMC3,
+    PpuMMC5,
+    PrgCustom,
+}
+
+#[repr(u8)]
+pub enum PpuHandler {
+    Chr,
+    ChrRam,
+    Vram,
+    Palette,
+    OpenBus,
+    
+    // Some examples of custom handlers!
+    ChrMMC2,
+    ChrMMC3,
+    ChrRamMMC3,
+    ChrMMC5,
+    VramMMC5,
+}
+
+let cpu_handler_id = cpu_bus_table[addr];
+match cpu_handler_id {
+    CpuHandler::Ram => handle_ram_read(),
+    CpuHandler::Ppu => handle_ppu_read(),
+    CpuHandler::IO => handle_io_read(),
+    // and so on...
+}
+```
+
+The second thing we can do is, make a table with less entries. Look at NES's [CPU memory map](https://www.nesdev.org/wiki/CPU_memory_map) carefully. Notice how the devices are mapped to big ranges of addresses. RAM, for example, occupies 0 to 0x1fff, and PRG occupies 0x8000 to 0xffff. We can choose an address granularity that will map to a SINGLE handler ID.
+This way you can make the dispatch table as small as *8 ENTRIES only*. Like so:
+
+```rust
+let cpu_bus_table = [
+    CpuHandler::Ram, // 0x0000 to 0x2000
+    CpuHandler::Ppu, // 0x2000 to 0x4000
+    CpuHandler::IO,  // 0x4000 to 0x6000
+    CpuHandler::Mapper, // 0x6000 to 0x8000
+    CpuHandler::Prg, // 0x8000 to 0xa000
+    CpuHandler::Prg, // 0xa000 to 0xc000
+    CpuHandler::Prg, // 0xc000 to 0xe000
+    CpuHandler::Prg, // 0xe000 to 0xffff
+];
+```
+Surprised? The same applies to the (PPU memory map)[https://www.nesdev.org/wiki/PPU_memory_map] (i invite you to find a good table size for this too)!
+
+We now only need a formula to map an address to the correct entry in the smaller table. This is very simple.
+If the table is 8 entries big, this means we need 3 bits (log2(8) = 3) to address it.
+Those 3 bits are taken from the higher part of the original address. So we shift the 16bit address right `16 - log2(table_size)`. In our case, its `addr >> 13`.
+
+```rust
+let handler_index = addr >> (16 - ilog2(cpu_bus_table.len()))
+let handler_id = cpu_bus_table[handler_index];
+
+match handler_id {
+    CpuHandler::Ram => handle_ram_read(),
+    CpuHandler::Ppu => handle_ppu_read(),
+    CpuHandler::IO => handle_io_read(),
+    // and so on...
+}
+```
 
 ## Optimizing Banking
 The first exercise was asking about how you can optimize the banking system, as there are some super nerd trickery we can employ here. The explanation is hidden, if you'd like to think about it before continuing.
