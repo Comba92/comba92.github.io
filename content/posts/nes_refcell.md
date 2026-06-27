@@ -1,6 +1,6 @@
 +++
 date = '2025-02-11T16:11:37+01:00'
-draft = false
+draft = true
 description = 'NesRefcell'
 linkTitle = 'Rust Refcells: how I (un)safely got rid of them'
 title = 'Rust Refcells: how I (un)safely got rid of them in my project'

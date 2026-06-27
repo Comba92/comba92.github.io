@@ -32,16 +32,19 @@ The idea is this:
 1. When we build the mapper, we set up the bankings, and any other needed mapper state.
 2. When we WRITE to the registers (PRG-ROM address range) to change banks, we update the banking configuration.
 3. When we READ to the cartridge PRG-ROM, or READ/WRITE to the CHR, PRG-RAM, or Nametables VRAM, we simply translate the address given the current banking configuration.
-4. For more complex mappers, on each CPU clock, we can handle IRQs, Audio expansions, and scalines detectors (we might want to add even more functions based on how we need to wire the mapper object to the rest of our emulator).
+4. For more complex mappers, on each CPU clock, we can handle IRQs, audio expansions, and timers.
+5. For even more complex mappers, like MMC5, we can add cpu bus and ppu bus custom callbacks.
 
 {{<callout icon="lightbulb">}}
   I figured ALL mappers would need to hold the bankings object, so I have decided to move it out of the mapper object, so that i only have to define it once on the upper object owning the mapper, and then pass it to the mappers through their methods (this means less typing when defining mappers, probably).
 {{</callout>}}
 
 {{<callout icon="code">}}
+  Only if you are using Rust!
   Rust shenanigans: as we can't know at compile which mapper to use, we are using a [trait object](https://doc.rust-lang.org/book/ch17-02-trait-objects.html), and we have to wrap it inside a [Box](https://doc.rust-lang.org/book/ch15-01-box.html) (heap allocated object), as it's size isn't known at compile time. 
   <br>
   We also need to provide the signature 'Box<Mapper> where Self: Sized' in the trait new() function definition, as the compiler told me to do so. We don't need to specify the where clause whenever we are implementing it, tho.
+  Also, don't forget to add Send as a supertrait of the Mapper trait, so we can share the emulator between threads.
 {{</callout>}}
 
 This is a sketch of how the mapper interface should be, and I provide some default implementations, as most mappers will always have the same ranges mappings:
@@ -56,14 +59,12 @@ struct CartBaking {
 
 enum PpuTarget {
   Chr(usize),
-  CiRam(usize),
-  ExRam(usize),
-  Value(u8)
+  Vram(usize),
 }
 
 enum CpuTarget {
   Cart         // addresses 0x4020..0x6000
-  SRam(usize), // addresses 0x6000..0x8000
+  WRam(usize), // addresses 0x6000..0x8000
   Prg(usize),  // addresses 0x8000..
 }
 
@@ -75,10 +76,11 @@ trait Mapper {
   fn prg_write(&mut self, banks: &mut CartBanking, addr: usize, val: u8);
 
   // These will dispatch the /write to the correct target.
+  // You would probably prefer using a table of handlers instead of checking ranges
   fn map_cpu_addr(&mut self, banks: &mut CartBanking, addr: usize) -> CpuTarget {
     match addr {
       0x4020..=0x5FFF => CpuTarget::Cart,
-      0x6000..=0x7FFF => CpuTarget::SRam(banks.sram.translate(addr)),
+      0x6000..=0x7FFF => CpuTarget::WRam(banks.sram.translate(addr)),
       0x8000..=0xFFFF => CpuTarget::Prg(banks.prg.translate(addr)),
       _ => unreachable!()
     }
@@ -87,17 +89,19 @@ trait Mapper {
   fn map_ppu_addr(&mut self, banks: &mut CartBanking, addr: usize) -> PpuTarget {
     match addr {
       0x0000..=0x1FFF => PpuTarget::Chr(banks.chr.translate(addr)),
-      0x2000..=0x2FFF => PpuTarget::CiRam(banks.ciram.translate(addr)),
+      0x2000..=0x2FFF => PpuTarget::Vram(banks.ciram.translate(addr)),
       _ => unreachable!()
     }
   }
 
   // Mapper custom functionality, by default it does nothing.
   fn cpu_clock(&mut self) {}
+  fn cpu_bus_callback(&mut self, bus: &mut NesBus) {}
+  fn ppu_bus_callback(&mut self, bus: &mut NesBus, ppu: &mut NesPpu) {}
 }
 ```
 
-Whenever we need more complex mapping logic (something like the infamous MMC5, for example), we just ovverride the default implementations. The new() and prg_write() methods always have to be implemented, of course.
+The new() and prg_write() methods always have to be implemented, of course.
 
 ## Implementing Banking
 We now need a generic banking mechanism.
@@ -128,7 +132,7 @@ We then get the bank starting address:
 let bank_number = slots[slot_number];
 let bank_start_address = (bank_number % banks_count) * slot_size;
 ```
-{{<callout>}}
+{{<callout icon ="triangle-exclamation">}}
 Some games will write bigger banks numbers than the ones avaible in ROM. We must be sure to wrap the bank number around the biggest possible for that game.
 {{</callout>}}
 Notice how each bank starting address is a constant. Computing this each time we translate address can be saved work. So instead of saving the banks number, we can save their starting address!
@@ -161,7 +165,7 @@ The MMC1 has two modes for CHR banking. Let's look at mode1 first.
 
 In this mode, there are two CHR slots. As the CHR address range is 8kb ($0 to $1000), each slot will be 4kb.
 
-Whenever we write to CHR bank 0 ($C000 to $DFFF) or CHR bank 1 ($E000 to $FFFF), we will set the first slot to that bank number. 
+Whenever we write to CHR bank 0 ($C000 to $DFFF) or CHR bank 1 ($E000 to $FFFF), we will set the first slot to that bank number.
 ```rust
 // for $C000 to $DFFF
 chr_banks.set_slot(0, value_written);
@@ -199,25 +203,29 @@ Now, let's code the actual functions.
 - how big a slot is;
 - the offset of the system memory range ($8000 for PRG-ROM, $2000 for Nametables, $6000 for PRG-RAM).
 
+{{<callout icon="triangle-exclamation">}}
+The Baking constructor assumes rom_size and slot_size are powers of two, and slots_count should be an even number. This is important or else the calculations won't work.
+{{</callout>}}
+
 ### The code: initialization
 ```rust
 struct Banking {
   data_size: usize,
   bank_size: usize,
   banks_count: usize,
-  slots_start: usize,
+  slots_start: u16,
   slots: Vec<usize>,
 }
 
 impl Banking {
   pub fn new(
     rom_size: usize, 
-    slots_start: usize, 
+    slots_start: u16, 
     slot_size: usize, 
     slots_count: usize
   ) -> Self {
     let slots = vec![0; slots_count].into_boxed_slice();
-    let bank_size = slot_size;
+    let bank_size = slot_size as usize;
     let banks_count = rom_size / bank_size;
 
     Self {
@@ -226,21 +234,24 @@ impl Banking {
     }
   }
 
-  pub fn new_prg(header: &CartHeader, slots_count: usize) -> Self {
-    let slot_size = 32*1024 / slots_count;
-    Self::new(header.prg_size, 0x8000, slot_size, slots_count)
-  }
-}
-```
-{{<callout icon="pencil">}}
-  The methods new_chr(), new_sram(), and new_ciram() are left as an exercise to the reader!
-{{</callout>}}
-{{<collapse summary="Click for solution 😠">}}
-  ```rust
   pub fn new_chr(header: &CartHeader, pages_count: usize) -> Self {
     let pages_size = 8*1024 / pages_count;
     Self::new(header.chr_real_size(), 0x0000, pages_size, pages_count)
   }
+}
+```
+{{<callout icon="pencil">}}
+  The methods new_prg(), new_sram(), and new_ciram() are left as an exercise to the reader!
+{{</callout>}}
+{{<collapse summary="Click for solution 😠">}}
+  ```rust
+  pub fn new_prg(header: &CartHeader, slots_count: usize) -> Self {
+    let slot_size = 32*1024 / slots_count;
+    let res = Self::new(header.prg_size, 0x8000, slot_size, slots_count);
+    res.set_slot(res.slots.len() - 1, res.banks_count - 1); // PRG usually have the last slot fixed to the last bank, so that interrupt handlers are always accessible
+    res
+  }
+
   pub fn new_sram(header: &CartHeader) -> Self {
     Self::new(header.sram_real_size(), 0x6000, 8*1024, 1)
   }
@@ -266,19 +277,15 @@ pub fn set_slot(&mut self, slot: usize, bank: usize) {
   // some games might write bigger bank numbers than really avaible
   let bank = (bank % self.banks_count);
   // i do not expect to write outside the slots array.
+  // for safety, you might want to index slots with (slot % self.slots.len())
   self.slots[slot] = bank * self.bank_size;
 }
 
-// this can easily be generalized for any size.
-pub fn set_slot2x(&mut self, slot: usize, bank: usize) {
-  self.set_slot(slot*2, bank);
-  self.set_slot(slot*2 + 1, bank + 1);
-}
-
-pub fn translate(&self, addr: usize) -> usize {
+pub fn translate(&self, addr: u16) -> usize {
   // i do not expect to write outside the slots array here either. 
   // the bus object should take responsibilty to always pass correct addresses in range.
-  let slot = (addr - self.slots_start) / self.bank_size;
+  // for safety, you might want to index slots with (slot % self.slots.len())
+  let slot = (addr - self.slots_start) as usize / self.bank_size;
   self.slots[slot] + (addr % self.bank_size)
 }
 ```
@@ -293,25 +300,25 @@ pub fn translate(&self, addr: usize) -> usize {
   pub fn update_mirroring(&mut self, mirroring: Mirroring) {
     match mirroring {
       Mirroring::Horizontal => {
-        self.set_page(0, 0);
-        self.set_page(1, 0);
-        self.set_page(2, 1);
-        self.set_page(3, 1);
+        self.set_slots(0, 0);
+        self.set_slots(1, 0);
+        self.set_slots(2, 1);
+        self.set_slots(3, 1);
       }
       Mirroring::Vertical => {
-        self.set_page(0, 0);
-        self.set_page(1, 1);
-        self.set_page(2, 0);
-        self.set_page(3, 1);
+        self.set_slots(0, 0);
+        self.set_slots(1, 1);
+        self.set_slots(2, 0);
+        self.set_slots(3, 1);
       }
       Mirroring::SingleScreenA => for i in 0..4 {
-        self.set_page(i, 0);
+        self.set_slots(i, 0);
       }
       Mirroring::SingleScreenB => for i in 0..4 {
-        self.set_page(i, 1);
+        self.set_slots(i, 1);
       }
       Mirroring::FourScreen => for i in 0..4 {
-        self.set_page(i, i);
+        self.set_slots(i, i);
       }
     }
   }
@@ -340,31 +347,51 @@ if and only if b is a power of 2.
 We have to explicitly do that in code, because the compiler won't catch these optimizations if the values aren't constants.
 We might also want to cache the log2() values when we initialize the mapper, as they are constant.
 This is the final optimized code.
+
+{{<callout icon="triangle-exclamation">}}
+This model makes a lot of assumptions.
+- rom_size and page_size are a power of two.
+- rom_size SHOULD NOT be less than page_size.
+- pages_count should be an even number.
+- bank_size and banks_count SHOULD NOT be odd numbers.
+This is important or the calculations will break.
+It's up to the reader to come up with solutions and handle edge cases. 
+{{</callout>}}
+
+Note that here slots are named "pages" instead.
+
 ```rust
-  pub fn new(rom_size: usize, pages_start: usize, page_size: usize, pages_count: usize) -> Self {
+  pub fn new(rom_size: usize, pages_start: u16, page_size: usize, pages_count: usize) -> Self {
     let bankings = vec![0; pages_count].into_boxed_slice();
     let bank_size = page_size;
     let banks_count = rom_size / bank_size;
 
     // we cache the log2() values
     let bank_size_for_shift = bank_size.ilog2() as usize;
-    let banks_count_for_shift = banks_count.ilog2() as usize;
+    let banks_size_mask  = bank_size.saturating_sub(1);
+    let banks_count_mask = banks_count.saturating_sub(1);
 
-    Self { bankings, data_size: rom_size, pages_start, bank_size, bank_size_for_shift, banks_count, banks_count_for_shift }
+    Self { bankings, data_size: rom_size, pages_start, bank_size, bank_size_for_shift, banks_count, banks_size_mask, banks_count_mask }
   }
 
   pub fn set_page(&mut self, page: usize, bank: usize) {
-    // let bank = bank % self.banks_count;
-    let bank = bank & (self.banks_count-1);
-    // self.bankings[page] = bank * self.bank_size;
+    // originally:  bank = bank % self.banks_count;
+    // becomes:     bank = bank & (self.banks_count-1);
+    let bank = bank & (self.banks_count_mask);
+    
+    // originally:  self.bankings[page] = bank * self.bank_size;
+    // becomes:     self.bankings[page] = bank << ilog2(self.bank_size)
     self.bankings[page] = bank << self.bank_size_shift;
   }
 
-  pub fn translate(&self, addr: usize) -> usize {
-    // let page = (addr - self.pages_start) / self.bank_size;
-    let page = (addr - self.pages_start) >> self.bank_size_shift;
-    // self.bankings[page] + (addr % self.bank_size)
-    self.bankings[page] + (addr & (self.bank_size-1))
+  pub fn translate(&self, addr: u16) -> usize {
+    // originally   page = (addr - self.pages_start) / self.bank_size;
+    // becomes      page = (addr - self.pages_start) >> ilog2(self.bank_size);
+    let page = ((addr - self.pages_start) as usize) >> self.bank_size_shift;
+    
+    // originally:  self.bankings[page] + (addr % self.bank_size)
+    // becomes:     self.bankings[page] | (addr & (self.bank_size-1))
+    self.bankings[page] | (addr & self.bank_size_mask)
   }
 ```
 </details>
